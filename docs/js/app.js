@@ -103,10 +103,10 @@
           <div class="aa-card-head"><span class="aa-live"></span>AI Breakdown<span class="aa-sc">Sc. 3</span></div>
           <p class="aa-slug">EXT. AT-TURAIF, DIRIYAH – GOLDEN HOUR</p>
           <p class="aa-line">The <mark class="aa-w w1 cat-vehicles">family SUV</mark> glides past the <mark class="aa-w w2 cat-location">mud-brick walls</mark>. <mark class="aa-w w3 cat-extras">Tourists</mark> turn to look.</p>
-          <p class="aa-line aa-ar" dir="rtl" lang="ar"><mark class="aa-w w5 cat-cast">نورة</mark>: «شف يبه… <mark class="aa-w w4 cat-vfx">نجمة تمشي</mark>!»</p>
+          <p class="aa-line aa-ar" dir="rtl" lang="ar"><mark class="aa-w w5 cat-cast">نورة</mark>: «شف يبه… <mark class="aa-w w4 cat-vfx">نجمة تطير</mark>!»</p>
           <div class="aa-chips">
             <span class="aa-chip c1 cat-vehicles">Vehicles</span><span class="aa-chip c2 cat-location">Location</span>
-            <span class="aa-chip c3 cat-extras">Extras ×12</span><span class="aa-chip c5 cat-cast">Cast · Noura</span><span class="aa-chip c4 cat-vfx">VFX · moving star</span>
+            <span class="aa-chip c3 cat-extras">Extras ×12</span><span class="aa-chip c5 cat-cast">Cast · Noura</span><span class="aa-chip c4 cat-vfx">VFX · shooting star</span>
           </div>
         </div>
         <div class="aa-foot">
