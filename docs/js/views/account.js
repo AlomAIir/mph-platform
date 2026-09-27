@@ -15,9 +15,9 @@ MPH.view('account', {
           <div class="field"><label for="acc-pw">New password</label><input id="acc-pw" class="input" type="password" minlength="8" autocomplete="new-password"></div>
           <div><button class="btn btn-outline" type="submit">Change password</button></div>
         </form>` })}
-        ${ui.panel({ title: 'Houses', icon: 'building-2', body: `<div class="stack">
-          ${ctx.session.orgs.map((o) => `<div class="row between"><span class="strong small">${esc(o.name)}</span>${ui.pill(o.role)}</div>`).join('') || '<p class="small muted">You’re not a member of a production house.</p>'}
-          <a class="btn btn-sm btn-ghost" href="#setup" style="align-self:flex-start">${ui.icon('plus')}Create another house</a>
+        ${ui.panel({ title: 'Workspaces', icon: 'building-2', body: `<div class="stack">
+          ${ctx.session.orgs.map((o) => `<div class="row between"><span class="strong small">${esc(o.name)}</span>${ui.pill(o.role)}</div>`).join('') || '<p class="small muted">You’re not a member of a workspace yet.</p>'}
+          <a class="btn btn-sm btn-ghost" href="#setup" style="align-self:flex-start">${ui.icon('plus')}Create another workspace</a>
         </div>` })}
         <div><button class="btn btn-danger" data-act="signout">${ui.icon('log-out')}${ctx.t('Sign out')}</button></div>
       </div>`;

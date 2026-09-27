@@ -1,4 +1,4 @@
-/* Team: house members and roles, client access per production, invite links. */
+/* Team: workspace members and roles, client access per production, invite links. */
 MPH.view('team', {
   async load(ctx) {
     const org = ctx.session.org;
@@ -30,9 +30,9 @@ MPH.view('team', {
     return `
       <div class="page">
         ${ui.pageHead({ title: 'Team', sub: `${esc(org.name)}${org.name_ar ? ` · <span class="ar">${esc(org.name_ar)}</span>` : ''} · unlimited seats. Everyone gets exactly the access their role allows, enforced by the database.`,
-          actions: `${isOwner ? `<button class="btn btn-outline" data-rename>${ui.icon('pencil')}Rename house</button>` : ''}${d.canInvite ? `<button class="btn btn-primary" data-invite>${ui.icon('user-plus')}Invite someone</button>` : ''}` })}
+          actions: `${isOwner ? `<button class="btn btn-outline" data-rename>${ui.icon('pencil')}Rename workspace</button>` : ''}${d.canInvite ? `<button class="btn btn-primary" data-invite>${ui.icon('user-plus')}Invite someone</button>` : ''}` })}
 
-        ${ui.panel({ title: `House members · ${d.members.length}`, icon: 'users-round', flush: true, body: `<div class="table-wrap"><table class="table">
+        ${ui.panel({ title: `Members · ${d.members.length}`, icon: 'users-round', flush: true, body: `<div class="table-wrap"><table class="table">
           <thead><tr><th>Person</th><th>Role</th><th>Access</th><th></th></tr></thead>
           <tbody>${d.members.map((m) => {
             const p = prof(m.user_id); const me = m.user_id === ctx.session.user.id;
@@ -79,14 +79,14 @@ MPH.view('team', {
       if ((el = t('[data-copy]'))) return copy(el.dataset.copy);
       try {
         if ((el = t('[data-revoke]'))) { ctx.api.must(await ctx.sb.from('invites').delete().eq('id', el.dataset.revoke)); ctx.toast('Invite revoked'); return ctx.reload(); }
-        if ((el = t('[data-remove]'))) { ctx.api.must(await ctx.sb.from('org_members').delete().eq('org_id', ctx.session.org.id).eq('user_id', el.dataset.remove)); ctx.toast('Removed from the house'); return ctx.reload(); }
+        if ((el = t('[data-remove]'))) { ctx.api.must(await ctx.sb.from('org_members').delete().eq('org_id', ctx.session.org.id).eq('user_id', el.dataset.remove)); ctx.toast('Removed from the workspace'); return ctx.reload(); }
         if ((el = t('[data-unclient]'))) { const [pid, uid] = el.dataset.unclient.split('|'); ctx.api.must(await ctx.sb.from('production_members').delete().eq('production_id', pid).eq('user_id', uid)); ctx.toast('Client access removed'); return ctx.reload(); }
       } catch (ex) { return ctx.toastError(ex); }
       if (t('[data-rename]')) {
         const org = ctx.session.org;
         const dlg = ctx.modal(ctx.frame({
-          title: 'Rename house',
-          body: `<div class="field"><label for="rn-name">House name</label><input id="rn-name" class="input" value="${esc(org.name)}"></div>
+          title: 'Rename workspace',
+          body: `<div class="field"><label for="rn-name">Workspace name</label><input id="rn-name" class="input" value="${esc(org.name)}"></div>
                  <div class="field"><label for="rn-name-ar">Arabic name</label><input id="rn-name-ar" class="input ar" dir="rtl" value="${esc(org.name_ar || '')}"></div>
                  <div class="field"><label for="rn-city">City</label><input id="rn-city" class="input" value="${esc(org.city || '')}"></div>
                  <div id="rn-error" hidden></div>`,
@@ -95,7 +95,7 @@ MPH.view('team', {
         dlg.querySelector('#rn-save').addEventListener('click', async () => {
           const name = dlg.querySelector('#rn-name').value.trim();
           const out = dlg.querySelector('#rn-error');
-          if (!name) { out.hidden = false; out.innerHTML = ui.errorBox('The house needs a name.'); return MPH.icons(); }
+          if (!name) { out.hidden = false; out.innerHTML = ui.errorBox('The workspace needs a name.'); return MPH.icons(); }
           try {
             ctx.api.must(await ctx.sb.from('orgs').update({ name, name_ar: dlg.querySelector('#rn-name-ar').value.trim() || null, city: dlg.querySelector('#rn-city').value.trim() || null }).eq('id', org.id));
             await ctx.api.loadSession();

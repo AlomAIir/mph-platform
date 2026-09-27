@@ -63,7 +63,7 @@ MPH.view('home', {
           actions: canCreate ? `<a class="btn btn-primary" href="#productions.new">${ui.icon('plus')}${ctx.t('New production')}</a>` : '',
         })}
         ${prods.length ? `<div class="cards">${prods.map(card).join('')}</div>` : ui.panel({ body: ui.empty('clapperboard', 'No productions yet',
-          clientOnly ? 'When a production house shares a production with you, it appears here.' : 'Create your first production, add its script, and the AI drafts the breakdown for you to review.',
+          clientOnly ? 'When a company shares a production with you, it appears here.' : 'Create your first production, add its script, and the AI drafts the breakdown for you to review.',
           canCreate ? `<a class="btn btn-primary" href="#productions.new">${ui.icon('plus')}${ctx.t('New production')}</a>` : '') })}
         ${clientOnly ? '' : `
         <div class="callout">${ui.icon('route')}<div class="stack tight"><span class="strong small">How Phase 1 works</span>

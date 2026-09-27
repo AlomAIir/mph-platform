@@ -775,7 +775,7 @@
       if (d.mode === 'locked') {
         return `<div class="page">
           ${ui.pageHead({ eyebrow: 'Plan', title: 'Budget & Bid' })}
-          <div class="panel">${ui.empty('lock', 'Budgets are visible to owners and producers.', 'Internal cost, markup and client bids are limited to owners and producers of the house. Ask a producer if you need a figure.')}</div>
+          <div class="panel">${ui.empty('lock', 'Budgets are visible to owners and producers.', 'Internal cost, markup and client bids are limited to owners and producers of the workspace. Ask a producer if you need a figure.')}</div>
         </div>`;
       }
       return renderProducer(ctx, d);
