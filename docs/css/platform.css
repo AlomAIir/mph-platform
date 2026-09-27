@@ -232,6 +232,24 @@
 @keyframes mph-spin { to { transform: rotate(360deg); } }
 .btn .spin.sm { border-top-color: currentColor; }
 
+/* grouped, numbered activities in the step nav of every production page */
+.steps .step-group { flex-direction: column; gap: 0; padding-block-start: 8px; }
+.step-group-label { display: flex; align-items: center; gap: 6px; padding-inline: 10px; font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); white-space: nowrap; }
+.step-group-label b { width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center; font-size: 9px; letter-spacing: 0;
+  background: color-mix(in srgb, var(--pc, var(--accent)) 20%, transparent); color: var(--pc, var(--accent)); }
+.step-group-tabs { display: flex; gap: 2px; }
+.steps .step-group + .step-group::before { inset-block: 14px 10px; }
+
+/* production-wide items that aren't live yet (Documents): greyed, with a "Coming soon" tip */
+.ph-soon { position: relative; display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border-radius: 9px; font-size: 12.5px; font-weight: 600;
+  color: var(--faint); background: rgba(255, 255, 255, .03); box-shadow: inset 0 0 0 1px var(--line); cursor: not-allowed; user-select: none; }
+.ph-soon svg.lucide { width: 15px; height: 15px; }
+.ph-soon::after { content: attr(data-tip); position: absolute; z-index: 40; inset-block-start: calc(100% + 8px); inset-inline-end: 0; white-space: nowrap;
+  padding: 6px 10px; border-radius: 8px; background: var(--raised-2); color: var(--text); font-size: 12px; font-weight: 600; box-shadow: var(--shadow);
+  opacity: 0; transform: translateY(-4px); transition: opacity .2s, transform .2s; pointer-events: none; }
+.ph-soon:hover, .ph-soon:focus-visible { color: var(--muted); }
+.ph-soon:hover::after, .ph-soon:focus-visible::after { opacity: 1; transform: none; }
+
 /* not-yet-live steps */
 .steps a.soon { opacity: .55; }
 .soon-tag { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; background: var(--raised-2); color: var(--muted); margin-inline-start: 2px; }

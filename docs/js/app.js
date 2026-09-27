@@ -11,16 +11,22 @@
   /* ------------------------------------------------------------ production flow
      `live` modules work in Phase 1; the rest show a "coming soon" page linking to the demo. */
   const PHASES = [
+    /* each phase is an ordered sequence of steps, grouped into activities (tabs keep the same order) */
     { id: 'pre', label: 'Pre-production', icon: 'pencil-ruler', color: '#ACD062',
-      tabs: [['treatment', 'Treatment & Lookbook', 'gallery-vertical-end'], ['script', 'Script', 'file-text', 1], ['docs', 'Documents', 'folder-open'],
-             ['breakdown', 'AI Breakdown', 'scan-text', 1], ['shotlist', 'Shot List', 'list-video', 1], ['storyboard', 'Storyboard', 'layout-grid'],
-             ['stripboard', 'Stripboard', 'rows-3', 1], ['budget', 'Budget & Bid', 'calculator', 1], ['calendar', 'Calendar', 'calendar-days']],
-      groups: [['treatment', 'script', 'docs'], ['breakdown'], ['shotlist', 'storyboard'], ['stripboard', 'budget', 'calendar']] },
+      tabs: [['script', 'Script', 'file-text', 1], ['treatment', 'Treatment & Lookbook', 'gallery-vertical-end'],
+             ['breakdown', 'AI Breakdown', 'scan-text', 1],
+             ['storyboard', 'Storyboard', 'layout-grid'], ['shotlist', 'Shot List', 'list-video', 1],
+             ['stripboard', 'Stripboard', 'rows-3', 1], ['calendar', 'Calendar', 'calendar-days'],
+             ['budget', 'Budget & Bid', 'calculator', 1]],
+      groups: [['Story', ['script', 'treatment']], ['Breakdown', ['breakdown']], ['Visualize', ['storyboard', 'shotlist']],
+               ['Schedule', ['stripboard', 'calendar']], ['Budget', ['budget']]] },
     { id: 'prod', label: 'Production', icon: 'clapperboard', color: '#FAB771',
-      tabs: [['crew', 'Crew & Talent', 'users', 1], ['locations', 'Locations', 'map-pin'], ['callsheets', 'Call Sheets', 'clipboard-list', 1], ['shootday', 'Shoot Day', 'radio']] },
+      tabs: [['crew', 'Crew & Talent', 'users', 1], ['locations', 'Locations', 'map-pin'], ['callsheets', 'Call Sheets', 'clipboard-list', 1], ['shootday', 'Shoot Day', 'radio']],
+      groups: [['Team & places', ['crew', 'locations']], ['Shoot', ['callsheets', 'shootday']]] },
     { id: 'post', label: 'Post-production', icon: 'film', color: '#7FB2A6',
       tabs: [['dailies', 'Dailies & Media', 'hard-drive'], ['edit', 'Edit & Versions', 'scissors'], ['review', 'Review & Approvals', 'circle-check-big'],
-             ['finishing', 'Finishing', 'wand-sparkles'], ['deliverables', 'Deliverables', 'package-check'], ['wrap', 'Wrap Report', 'file-bar-chart']] },
+             ['finishing', 'Finishing', 'wand-sparkles'], ['deliverables', 'Deliverables', 'package-check'], ['wrap', 'Wrap Report', 'file-bar-chart']],
+      groups: [['Edit', ['dailies', 'edit']], ['Approve', ['review']], ['Finish & deliver', ['finishing', 'deliverables']], ['Close', ['wrap']]] },
   ];
   const CLIENT_MODULES = ['overview', 'script', 'budget'];
   const phaseOf = (prod) => ({ 'Development': 'pre', 'Bidding': 'pre', 'Pre-production': 'pre', 'Shooting': 'prod', 'Post-production': 'post', 'Delivered': 'post' }[prod.status] || 'pre');
@@ -515,8 +521,12 @@
     if (viewing) {
       const ph = visible.find((x) => x.id === viewing.id);
       if (ph) {
-        const groups = (ph.groups || [ph.tabs.map(([id]) => id)]).map((g) => ph.tabs.filter(([id]) => g.includes(id)).map(tab).join('')).filter(Boolean);
-        steps = `<nav class="steps" style="--pc:${ph.color}">${groups.map((g) => `<div class="step-group">${g}</div>`).join('')}</nav>`;
+        // grouped, numbered activities, in sequence: "1 Story · Script, Treatment" …
+        const groups = (ph.groups || [['', ph.tabs.map(([id]) => id)]])
+          .map(([label, ids]) => [label, ph.tabs.filter(([id]) => ids.includes(id)).map(tab).join('')])
+          .filter(([, html]) => html);
+        steps = `<nav class="steps" style="--pc:${ph.color}">${groups.map(([label, html], i) => `
+          <div class="step-group">${label ? `<span class="step-group-label"><b>${i + 1}</b>${esc(t(label))}</span>` : ''}<div class="step-group-tabs">${html}</div></div>`).join('')}</nav>`;
       }
     }
     return `
@@ -528,6 +538,7 @@
             <span class="small muted">${esc(prod.client_name || 'No client yet')}${prod.agency ? ' · via ' + esc(prod.agency) : ''}${prod.format ? ' · ' + esc(prod.format) : ''}${prod.code ? ` · <span class="mono">${esc(prod.code)}</span>` : ''}</span>
           </div>
           ${prod.shoot_start ? `<div class="row small muted nowrap">${ui.icon('calendar')}Shoot ${MPH.date(prod.shoot_start)}${prod.shoot_end && prod.shoot_end !== prod.shoot_start ? '–' + MPH.date(prod.shoot_end) : ''}</div>` : ''}
+          ${client ? '' : `<span class="ph-soon" tabindex="0" role="button" aria-disabled="true" data-tip="${esc(t('Coming soon'))}">${ui.icon('folder-open')}${t('Documents')}</span>`}
         </div>
         ${stepper}${steps}
       </div>

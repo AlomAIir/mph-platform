@@ -60,7 +60,10 @@
     'Deliverables': 'التسليمات', 'Wrap Report': 'تقرير الختام', 'Shoot Day': 'يوم التصوير',
     'Treatment & Lookbook': 'المعالجة ولوحة المزاج', 'Documents': 'المستندات',
     'Search': 'بحث', 'Preview client view': 'معاينة عرض العميل', 'Back to producer view': 'العودة لعرض المنتج',
-    'New production': 'إنتاج جديد', 'Sign out': 'تسجيل الخروج', 'Soon': 'قريبًا',
+    'New production': 'إنتاج جديد', 'Sign out': 'تسجيل الخروج', 'Soon': 'قريبًا', 'Coming soon': 'قريبًا',
+    'Story': 'القصة', 'Breakdown': 'التفريغ', 'Visualize': 'التصوّر', 'Schedule': 'الجدولة', 'Budget': 'الميزانية',
+    'Team & places': 'الفريق والمواقع', 'Shoot': 'التصوير', 'Edit': 'المونتاج', 'Approve': 'الاعتماد', 'Finish & deliver': 'التشطيب والتسليم', 'Close': 'الختام',
+    'Phase one': 'المرحلة الأولى', 'Phase two': 'المرحلة الثانية', 'Phase three': 'المرحلة الثالثة', 'Post and delivery': 'ما بعد الإنتاج والتسليم',
   };
   MPH.t = (s) => (MPH.state.lang === 'ar' && AR[s]) || s;
 })();

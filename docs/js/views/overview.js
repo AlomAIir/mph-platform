@@ -119,23 +119,31 @@ MPH.view('overview', {
     };
     const PHASE_NAMES = { pre: ['Phase one', 'Pre-production'], prod: ['Phase two', 'Production'], post: ['Phase three', 'Post and delivery'] };
 
-    const bands = MPH.PHASES.map((ph) => {
+    /* the three phases side by side (as in the pitch), each with its activities grouped and numbered in sequence */
+    const bands = `<div class="ov-flow">${MPH.PHASES.map((ph, pi) => {
       const [num, title] = PHASE_NAMES[ph.id];
       const live = ph.tabs.filter((t) => t[3]).length;
-      return `
-        <section class="ov-band" style="--pc:${ph.color}">
-          <header class="ov-band-head">
-            <span class="ov-band-num">${num}</span><span class="ov-band-title">${ctx.t(title)}</span>
-            <span class="ov-band-state">${phaseState(ph)} · ${live ? `${live} live` : 'coming soon'}</span>
-          </header>
-          <div class="ov-steps" role="list">
-            ${ph.tabs.map(([id, label, , isLive]) => {
-              const [line, kind, ratio] = status[id] || ['Arrives in a later phase', '', 0];
-              return ovCard({ id, label: ctx.t(label), line, kind, ratio, live: !!isLive, href: `#p.${p.id}.${id}` });
+      const tab = (id) => ph.tabs.find((x) => x[0] === id);
+      const groups = (ph.groups || [['', ph.tabs.map((x) => x[0])]]).map(([label, ids], gi) => `
+        <div class="ov-group">
+          ${label ? `<span class="ov-group-label"><b>${gi + 1}</b>${esc(ctx.t(label))}</span>` : ''}
+          <div class="ov-group-cards" role="list">
+            ${ids.map((id) => {
+              const [, stepLabel, , isLive] = tab(id);
+              const [line, kind, ratio] = status[id] || ['Coming soon', '', 0];
+              return ovCard({ id, label: ctx.t(stepLabel), line, kind, ratio, live: !!isLive, href: `#p.${p.id}.${id}` });
             }).join('')}
           </div>
+        </div>`).join('');
+      return `${pi ? `<span class="ov-arrow" aria-hidden="true">${ui.icon('arrow-right')}</span>` : ''}
+        <section class="ov-band ov-phase" style="--pc:${ph.color};animation-delay:${pi * 90}ms">
+          <header class="ov-band-head">
+            <span class="stack" style="gap:2px"><span class="ov-band-num">${ctx.t(num)}</span><span class="ov-band-title">${ctx.t(title)}</span></span>
+            <span class="ov-band-state">${phaseState(ph)}<br>${live ? `${live} live` : ctx.t('Coming soon')}</span>
+          </header>
+          <div class="ov-groups">${groups}</div>
         </section>`;
-    }).join('');
+    }).join('')}</div>`;
 
     const tiles = [
       ['clapperboard', d.scenes.length, 'Scenes', `${d.elements.length} elements`],

@@ -118,6 +118,39 @@
 
 @keyframes ov-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
+/* ---------------- the flow: three phases side by side with arrows, like the pitch slide */
+.ov-flow { display: grid; grid-template-columns: minmax(0, 1.25fr) 30px minmax(0, 1fr) 30px minmax(0, 1fr); align-items: start; gap: 0; }
+.ov-phase { display: flex; flex-direction: column; min-width: 0; }
+.ov-phase .ov-band-head { align-items: center; padding: 14px 18px; }
+.ov-phase .ov-band-title { font-size: 19px; }
+.ov-phase .ov-band-state { text-align: end; line-height: 1.35; }
+.ov-arrow { align-self: start; margin-block-start: 22px; display: grid; place-items: center; color: var(--faint); }
+.ov-arrow svg.lucide { width: 20px; height: 20px; animation: ov-nudge 2.4s ease-in-out infinite; }
+[dir="rtl"] .ov-arrow svg.lucide { transform: scaleX(-1); animation-name: ov-nudge-rtl; }
+@keyframes ov-nudge { 0%, 100% { transform: translateX(-2px); opacity: .6; } 50% { transform: translateX(3px); opacity: 1; } }
+@keyframes ov-nudge-rtl { 0%, 100% { transform: scaleX(-1) translateX(-2px); opacity: .6; } 50% { transform: scaleX(-1) translateX(3px); opacity: 1; } }
+
+.ov-groups { display: flex; flex-direction: column; gap: 14px; padding: 14px; }
+.ov-group { display: flex; flex-direction: column; gap: 8px; }
+.ov-group-label { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-2); }
+.ov-group-label b { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 10.5px; letter-spacing: 0;
+  background: color-mix(in srgb, var(--pc) 22%, transparent); color: var(--pc); }
+.ov-group-label::after { content: ""; flex: 1; height: 1px; background: rgba(255, 255, 255, .06); }
+.ov-group-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+/* compact cards inside the flow */
+.ov-group-cards .ov-step { min-height: 176px; padding: 12px 12px 14px; gap: 8px; }
+.ov-group-cards .ov-step-art { height: 78px; }
+.ov-group-cards .ov-step-name { font-size: 14.5px; }
+.ov-group-cards .ov-step-line { font-size: 12.5px; }
+
+/* narrower screens: phases stack, arrows point down */
+@media (max-width: 1180px) {
+  .ov-flow { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .ov-arrow { margin: 6px auto; transform: rotate(90deg); }
+  [dir="rtl"] .ov-arrow { transform: rotate(90deg); }
+  .ov-group-cards { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+}
+
 @media (max-width: 760px) {
   .ov-hero { min-height: 300px; }
   .ov-hero-shade { background: linear-gradient(0deg, rgba(8, 17, 16, .95) 0%, rgba(8, 17, 16, .6) 55%, rgba(8, 17, 16, .1) 100%); }
