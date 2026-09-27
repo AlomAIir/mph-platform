@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#13312F">
+<title>Call sheet · MPH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="css/app.css">
+<style>
+  /* Public crew page: light, high-contrast theme so it reads on a phone in direct sun. */
+  html { color-scheme: light; }
+  body.csp {
+    --bg: #F7F4EC; --bg-2: #EFEADD; --surface: #FFFFFF; --raised: #EFEADD; --raised-2: #E4DDCB;
+    --line: #D9D1BD; --line-2: #BFB59C; --text: #0E1412; --text-2: #26302D; --muted: #46514D; --faint: #6A746F;
+    --accent: #13312F; --accent-2: #1C4441; --accent-ink: #FFFFFF; --accent-soft: rgba(19, 49, 47, .08); --accent-line: rgba(19, 49, 47, .35);
+    --ok: #1E7A34; --danger: #B3261E; --band: #13312F; --lime: #5E7D1F;
+    background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.5;
+  }
+  html[lang="ar"] body.csp { font-family: var(--font-ar); }
+  #csp { height: auto; min-height: 100%; }
+  .csp-wrap { max-width: 640px; margin-inline: auto; padding: 0 0 calc(32px + env(safe-area-inset-bottom, 0px)); }
+  .csp-top { background: var(--band); color: #F7F4EC; padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 14px; display: flex; align-items: flex-start; gap: 12px; }
+  .csp-top .t { font: 700 20px/1.2 var(--font-display); overflow-wrap: anywhere; }
+  .csp-top .t .ar { display: block; font-size: 16px; opacity: .85; font-weight: 600; text-align: start; }
+  html[dir="ltr"] .csp-top .t .ar { text-align: left; }
+  .csp-top .s { font-size: 13px; color: #D8E3DC; margin-block-start: 2px; }
+  .csp-lang { flex: none; height: 36px; min-width: 56px; padding: 0 12px; border-radius: 8px; border: 1.5px solid rgba(247, 244, 236, .6); color: #F7F4EC; font-weight: 700; font-size: 14px; background: transparent; cursor: pointer; }
+  .csp-lang:focus-visible { outline: 3px solid #D8EBA9; }
+  .csp-main { padding: 14px 12px 0; display: flex; flex-direction: column; gap: 12px; }
+  .csp-card { background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .csp-h { font-size: 12px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--band); display: flex; align-items: center; gap: 8px; }
+  html[lang="ar"] .csp-h { letter-spacing: 0; font-size: 14px; }
+  .csp-hero { background: var(--band); color: #FFFFFF; border: 0; }
+  .csp-hero .csp-dayof { font: 700 15px/1.2 var(--font-display); letter-spacing: .06em; color: #D8EBA9; }
+  html[lang="ar"] .csp-hero .csp-dayof { letter-spacing: 0; }
+  .csp-hero .csp-date { font: 700 22px/1.2 var(--font-display); }
+  .csp-hero .csp-loc { font-size: 15px; color: #E6EEE9; }
+  .csp-calls { display: flex; flex-wrap: wrap; gap: 10px; margin-block-start: 4px; }
+  .csp-call { flex: 1 1 130px; background: #FFFFFF; color: var(--band); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .csp-call .l { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #3C4744; }
+  html[lang="ar"] .csp-call .l { letter-spacing: 0; font-size: 13px; }
+  .csp-call .v { font: 700 38px/1 var(--font-display); font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; text-align: start; }
+  .csp-call.me { background: #D8EBA9; }
+  .csp-call.sm .v { font-size: 24px; }
+  .csp-field { display: flex; flex-direction: column; gap: 6px; }
+  .csp-field label { font-size: 14px; font-weight: 700; }
+  .csp-in { width: 100%; height: 50px; padding: 0 12px; border-radius: 10px; border: 2px solid var(--line-2); background: #FFFFFF; color: var(--text); font-size: 17px; outline: 0; }
+  .csp-in:focus { border-color: var(--band); box-shadow: 0 0 0 3px rgba(19, 49, 47, .15); }
+  select.csp-in { appearance: auto; }
+  .csp-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .csp-btn { height: 56px; border-radius: 12px; font-size: 17px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; text-align: center; line-height: 1.15; cursor: pointer; }
+  .csp-btn:disabled { opacity: .5; cursor: default; }
+  .csp-yes { background: var(--ok); color: #FFFFFF; border: 2px solid var(--ok); }
+  .csp-no { background: #FFFFFF; color: var(--danger); border: 2px solid var(--danger); }
+  .csp-btn svg { width: 20px; height: 20px; flex: none; }
+  .csp-state { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; font-weight: 700; font-size: 16px; }
+  .csp-state.ok { background: #DDF0DF; color: #134D22; }
+  .csp-state.no { background: #F9DEDB; color: #7E1B15; }
+  .csp-state svg { width: 22px; height: 22px; flex: none; }
+  .csp-link { color: #0B5394; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; background: none; border: 0; padding: 0; font-size: 15px; cursor: pointer; }
+  .csp-err { color: var(--danger); font-weight: 600; font-size: 14px; }
+  .csp-kv { display: flex; flex-direction: column; gap: 2px; }
+  .csp-kv .k { font-size: 13px; font-weight: 700; color: var(--muted); }
+  .csp-kv .v { font-size: 16px; font-weight: 600; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .csp-maps { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border-radius: 10px; border: 2px solid var(--band); color: var(--band); font-weight: 700; font-size: 15px; align-self: flex-start; }
+  .csp-maps svg { width: 18px; height: 18px; }
+  .csp-notes { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 16px; }
+  .csp-notes-card { background: #FFF6DC; border-color: #C99A33; }
+  .csp-sc { display: flex; gap: 12px; padding-block: 10px; border-block-start: 1px solid var(--line); }
+  .csp-sc:first-of-type { border-block-start: 0; padding-block-start: 0; }
+  .csp-sc-num { flex: none; min-width: 48px; height: 48px; border-radius: 10px; background: var(--band); color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; font: 700 18px/1 var(--font-display); padding: 0 6px; }
+  .csp-sc-num small { font: 700 10px/1 var(--font-ui); letter-spacing: .06em; opacity: .8; margin-block-end: 2px; }
+  .csp-sc-body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .csp-sc-h { font-weight: 700; font-size: 15px; overflow-wrap: anywhere; direction: ltr; text-align: start; unicode-bidi: plaintext; }
+  .csp-sc-m { font-size: 14px; color: var(--muted); }
+  .csp-row { display: flex; align-items: baseline; gap: 10px; padding-block: 8px; border-block-start: 1px solid var(--line); }
+  .csp-row:first-of-type { border-block-start: 0; }
+  .csp-row .n { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+  .csp-row .r { font-size: 14px; color: var(--muted); font-weight: 500; display: block; }
+  .csp-row .c { flex: none; font: 700 18px/1 var(--font-display); font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+  .csp-row.me { background: #E4EDC8; margin-inline: -10px; padding-inline: 10px; border-radius: 8px; border-block-start-color: transparent; }
+  .csp-dept { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--lime); padding-block: 12px 2px; }
+  .csp-dept:first-child { padding-block-start: 0; }
+  .csp-tel { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px; border-radius: 10px; background: var(--band); color: #FFFFFF; font-weight: 700; direction: ltr; unicode-bidi: isolate; font-size: 15px; }
+  .csp-tel svg { width: 16px; height: 16px; }
+  .csp-foot { text-align: center; font-size: 13px; color: var(--muted); padding: 8px 16px 0; }
+  .csp-empty { min-height: 100vh; display: grid; place-items: center; padding: 24px; text-align: center; }
+  .csp-empty .box { max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .csp-empty svg { width: 40px; height: 40px; color: var(--band); }
+  .csp-empty h1 { font: 700 22px/1.25 var(--font-display); margin: 0; }
+  .csp-empty p { color: var(--muted); font-size: 16px; }
+  .csp-spin { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--band); animation: csp-spin .8s linear infinite; }
+  @keyframes csp-spin { to { transform: rotate(360deg); } }
+  .csp-num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
+  @media (min-width: 700px) { .csp-main { padding-inline: 0; } .csp-top { border-radius: 0 0 14px 14px; } }
+</style>
+</head>
+<body class="csp">
+<main id="csp" class="csp-wrap"><div class="csp-empty"><div class="box"><span class="csp-spin" aria-hidden="true"></span><p>Loading call sheet…</p></div></div></main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script>
+(function () {
+  'use strict';
+  var root = document.getElementById('csp');
+  var cfg = window.MPH_CONFIG || {};
+  var configured = cfg.supabaseUrl && !/PLACEHOLDER/.test(String(cfg.supabaseUrl) + String(cfg.supabaseKey));
+  var sb = configured && window.supabase ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }) : null;
+
+  /* ---------- storage (may be unavailable in private mode) ---------- */
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
+  function lsJSON(k) { try { return JSON.parse(lsGet(k) || 'null'); } catch (e) { return null; } }
+
+  /* ---------- i18n ---------- */
+  var L = {
+    en: {
+      callSheet: 'Call sheet', dayOf: function (n, t) { return 'DAY ' + n + ' OF ' + t; }, crewCall: 'Crew call', yourCall: 'Your call', shootCall: 'Shooting call', wrap: 'Est. wrap',
+      who: 'Who are you?', pick: 'Choose your name', someoneElse: 'I’m not listed: type my name', typeName: 'Your name',
+      confirm: 'Confirm attendance', decline: 'Can’t make it', confirmed: 'You confirmed your attendance', declined: 'You told the production you can’t make it',
+      change: 'Change my answer', notYou: 'Not you?', location: 'Location', setLoc: 'Set location', parking: 'Parking', hospital: 'Nearest hospital',
+      openMaps: 'Open in Maps', directions: 'Directions', emergency: 'Emergency 911 · Ambulance 997', weather: 'Weather', notes: 'Notes',
+      schedule: 'Schedule', scene: 'Sc.', scenes: function (n) { return n + (n === 1 ? ' scene' : ' scenes'); }, pages: 'pages', estimates: 'Times are estimates.',
+      cast: 'Cast', crew: 'Crew', contacts: 'Key contacts', call: 'Call', tbc: 'TBC', version: 'Version', published: 'Published', sending: 'Sending…',
+      pickFirst: 'Choose your name or type it first.', sendErr: 'Couldn’t send your answer. Check your connection and try again.',
+      noScenes: 'No scenes listed for this day.', loading: 'Loading call sheet…',
+      nfTitle: 'This call sheet link isn’t valid or was replaced by a newer version', nfText: 'Ask the production for the latest link.',
+      ncTitle: 'This page isn’t connected yet', ncText: 'The production hasn’t finished setting up call sheets.',
+      errTitle: 'Couldn’t load the call sheet', errText: 'Check your connection and reload the page.', reload: 'Reload',
+      you: 'You', lang: 'عربي', talent: 'Talent', savedAt: 'Sent', footer: 'Shared with Media Production Hub. Only people with this link can see it.',
+      dn: { Day: 'Day', Night: 'Night', Dawn: 'Dawn', Dusk: 'Dusk', 'Golden hour': 'Golden hour' }
+    },
+    ar: {
+      callSheet: 'ورقة الاستدعاء', dayOf: function (n, t) { return 'اليوم ' + n + ' من ' + t; }, crewCall: 'حضور الطاقم', yourCall: 'موعد حضورك', shootCall: 'بدء التصوير', wrap: 'الانتهاء المتوقع',
+      who: 'من أنت؟', pick: 'اختر اسمك', someoneElse: 'اسمي غير موجود: سأكتبه', typeName: 'اسمك',
+      confirm: 'تأكيد الحضور', decline: 'لا أستطيع الحضور', confirmed: 'أكّدت حضورك', declined: 'أبلغت الإنتاج أنك لا تستطيع الحضور',
+      change: 'تغيير إجابتي', notYou: 'لست أنت؟', location: 'الموقع', setLoc: 'موقع التصوير', parking: 'المواقف', hospital: 'أقرب مستشفى',
+      openMaps: 'فتح في الخرائط', directions: 'الاتجاهات', emergency: 'الطوارئ 911 · الإسعاف 997', weather: 'الطقس', notes: 'ملاحظات',
+      schedule: 'الجدول', scene: 'مشهد', scenes: function (n) { return n + ' ' + (n === 1 ? 'مشهد' : 'مشاهد'); }, pages: 'صفحات', estimates: 'الأوقات تقديرية.',
+      cast: 'الممثلون', crew: 'الطاقم', contacts: 'جهات الاتصال', call: 'الحضور', tbc: 'يُحدد لاحقًا', version: 'الإصدار', published: 'نُشر', sending: 'جارٍ الإرسال…',
+      pickFirst: 'اختر اسمك أو اكتبه أولًا.', sendErr: 'تعذّر إرسال إجابتك. تحقق من الاتصال وحاول مرة أخرى.',
+      noScenes: 'لا توجد مشاهد لهذا اليوم.', loading: 'جارٍ تحميل ورقة الاستدعاء…',
+      nfTitle: 'رابط ورقة الاستدعاء هذا غير صالح أو استُبدل بإصدار أحدث', nfText: 'اطلب أحدث رابط من فريق الإنتاج.',
+      ncTitle: 'هذه الصفحة غير متصلة بعد', ncText: 'لم يكتمل إعداد أوراق الاستدعاء لدى الإنتاج.',
+      errTitle: 'تعذّر تحميل ورقة الاستدعاء', errText: 'تحقق من الاتصال وأعد تحميل الصفحة.', reload: 'إعادة التحميل',
+      you: 'أنت', lang: 'EN', talent: 'الممثل', savedAt: 'أُرسل', footer: 'تمت المشاركة عبر Media Production Hub. يراها فقط من لديه الرابط.',
+      dn: { Day: 'نهار', Night: 'ليل', Dawn: 'فجر', Dusk: 'غروب', 'Golden hour': 'الساعة الذهبية' }
+    }
+  };
+  var lang = lsGet('mph.cs.lang') || ((navigator.language || '').toLowerCase().indexOf('ar') === 0 ? 'ar' : 'en');
+  function T(k) { return (L[lang] && L[lang][k] != null) ? L[lang][k] : L.en[k]; }
+  function applyLang() { document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'; }
+  applyLang();
+
+  /* ---------- helpers ---------- */
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var ICON = {
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+    x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+    pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 5-8 12-8 12s-8-7-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+    phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2Z"/></svg>',
+    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
+    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/></svg>'
+  };
+  function mapsUrl(q) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q); }
+  function norm(s) { return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+  function longDate(iso) {
+    if (!iso) return T('tbc');
+    var p = String(iso).slice(0, 10).split('-').map(Number);
+    var d = new Date(p[0], p[1] - 1, p[2]);
+    if (isNaN(d)) return String(iso);
+    try {
+      return new Intl.DateTimeFormat(lang === 'ar' ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+    } catch (e) { return d.toDateString(); }
+  }
+  function stamp(ts) {
+    var d = new Date(ts);
+    if (isNaN(d)) return '';
+    try { return new Intl.DateTimeFormat(lang === 'ar' ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(d); } catch (e) { return d.toLocaleString(); }
+  }
+  function eighths(n) { n = Number(n) || 0; var w = Math.floor(n / 8), r = n % 8; return w ? (r ? w + ' ' + r + '/8' : String(w)) : r + '/8'; }
+  function dn(v) { return (T('dn') || {})[v] || v || ''; }
+
+  /* ---------- state ---------- */
+  var token = decodeURIComponent((location.hash || '').replace(/^#/, '')).trim();
+  var sheet = null;        // { id, version, published_at, content, production }
+  var errMsg = '';
+  var sending = false;
+  function kWho() { return 'mph.cs.who.' + token; }
+  function kResp() { return 'mph.cs.resp.' + token + '.' + (sheet ? sheet.id : ''); }
+  function kViewed() { return 'mph.cs.viewed.' + token + '.' + (sheet ? sheet.id : ''); }
+  function getWho() { return lsJSON(kWho()) || { id: null, name: '', other: false }; }
+  function setWho(w) { lsSet(kWho(), JSON.stringify(w)); }
+
+  function people() { return (sheet && sheet.content && Array.isArray(sheet.content.people)) ? sheet.content.people : []; }
+  function meRow() {
+    var w = getWho();
+    var list = people();
+    if (w.id) { for (var i = 0; i < list.length; i++) if (list[i].id === w.id) return list[i]; }
+    if (w.name) { for (var j = 0; j < list.length; j++) if (norm(list[j].name) === norm(w.name)) return list[j]; }
+    return null;
+  }
+
+  /* ---------- screens ---------- */
+  function emptyScreen(icon, title, text, withReload) {
+    root.innerHTML = '<div class="csp-empty"><div class="box">' + ICON[icon] + '<h1>' + esc(title) + '</h1>' + (text ? '<p>' + esc(text) + '</p>' : '') +
+      (withReload ? '<button class="csp-maps" id="csp-reload" type="button">' + esc(T('reload')) + '</button>' : '') +
+      '<button class="csp-link" id="csp-lang2" type="button">' + esc(T('lang')) + '</button></div></div>';
+    var r = root.querySelector('#csp-reload');
+    if (r) r.addEventListener('click', function () { location.reload(); });
+    var lb = root.querySelector('#csp-lang2');
+    if (lb) lb.addEventListener('click', toggleLang);
+  }
+
+  function respondCard() {
+    var list = people().slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    var w = getWho();
+    var me = meRow();
+    var resp = lsJSON(kResp());
+    var picker;
+    if (me || (w.other && w.name)) {
+      picker = '<div class="csp-row" style="padding-block:0"><span class="n">' + esc(me ? me.name : w.name) + (me && me.role ? '<span class="r">' + esc(me.role) + '</span>' : '') + '</span>' +
+        '<button class="csp-link" type="button" data-act="notyou">' + esc(T('notYou')) + '</button></div>';
+    } else {
+      picker = '<div class="csp-field"><label for="csp-who">' + esc(T('who')) + '</label>' +
+        '<select id="csp-who" class="csp-in"><option value="">' + esc(T('pick')) + '</option>' +
+        list.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + (p.role ? ' · ' + esc(p.role) : '') + '</option>'; }).join('') +
+        '<option value="__other">' + esc(T('someoneElse')) + '</option></select></div>' +
+        '<div class="csp-field" id="csp-other" hidden><label for="csp-name">' + esc(T('typeName')) + '</label><input id="csp-name" class="csp-in" autocomplete="name" maxlength="120"></div>';
+    }
+    var body;
+    if (resp && resp.status && (me || w.name)) {
+      var ok = resp.status === 'confirmed';
+      body = '<div class="csp-state ' + (ok ? 'ok' : 'no') + '" role="status">' + (ok ? ICON.check : ICON.x) + '<span>' + esc(T(ok ? 'confirmed' : 'declined')) +
+        (resp.at ? '<br><span style="font-weight:500;font-size:14px">' + esc(T('savedAt')) + ' ' + esc(stamp(resp.at)) + '</span>' : '') + '</span></div>' +
+        '<button class="csp-link" type="button" data-act="change">' + esc(T('change')) + '</button>';
+    } else {
+      body = '<div class="csp-btns"><button class="csp-btn csp-yes" type="button" data-act="confirmed"' + (sending ? ' disabled' : '') + '>' + ICON.check + '<span>' + esc(T('confirm')) + '</span></button>' +
+        '<button class="csp-btn csp-no" type="button" data-act="declined"' + (sending ? ' disabled' : '') + '>' + ICON.x + '<span>' + esc(T('decline')) + '</span></button></div>' +
+        (errMsg ? '<div class="csp-err" role="alert">' + esc(errMsg) + '</div>' : '');
+    }
+    return '<section class="csp-card" id="csp-respond" aria-label="' + esc(T('who')) + '">' + picker + body + '</section>';
+  }
+
+  function render() {
+    var c = sheet.content || {};
+    var day = c.day || {};
+    var prod = sheet.production || c.production || {};
+    var me = meRow();
+    var notes = String(c.notes || '').split('\n').concat(String(day.notes || '').split('\n')).map(function (s) { return s.trim(); }).filter(Boolean);
+    var schedule = Array.isArray(c.schedule) ? c.schedule : [];
+    var cast = Array.isArray(c.cast) ? c.cast : [];
+    var crew = people().filter(function (p) { return p.kind !== 'talent'; });
+    var depts = [];
+    crew.forEach(function (p) { if (depts.indexOf(p.dept) < 0) depts.push(p.dept); });
+    var contacts = Array.isArray(c.contacts) ? c.contacts : [];
+    document.title = T('callSheet') + ' · ' + (prod.title || '') + ' · ' + T('dayOf')(day.day_no, day.total || day.day_no);
+
+    var h = '';
+    h += '<header class="csp-top"><div style="flex:1;min-width:0"><div class="t">' + esc(prod.title || '') + (prod.title_ar ? '<span class="ar">' + esc(prod.title_ar) + '</span>' : '') + '</div>' +
+      '<div class="s">' + esc(T('callSheet')) + ' · ' + esc(T('version')) + ' ' + esc(sheet.version) + (c.house ? ' · ' + esc(c.house) : '') + '</div></div>' +
+      '<button class="csp-lang" type="button" data-act="lang" aria-label="Language">' + esc(T('lang')) + '</button></header>';
+    h += '<div class="csp-main">';
+
+    // hero: day, date, calls
+    h += '<section class="csp-card csp-hero"><div class="csp-dayof">' + esc(T('dayOf')(day.day_no, day.total || day.day_no)) + '</div>' +
+      '<div class="csp-date">' + esc(longDate(day.date)) + '</div>' + (c.location ? '<div class="csp-loc">' + esc(c.location) + '</div>' : '') +
+      '<div class="csp-calls">' +
+      (me && me.call ? '<div class="csp-call me"><span class="l">' + esc(T('yourCall')) + '</span><span class="v">' + esc(me.call) + '</span></div>' : '') +
+      '<div class="csp-call' + (me && me.call ? ' sm' : '') + '"><span class="l">' + esc(T('crewCall')) + '</span><span class="v">' + esc(day.crew_call || T('tbc')) + '</span></div>' +
+      (day.shoot_call ? '<div class="csp-call sm"><span class="l">' + esc(T('shootCall')) + '</span><span class="v">' + esc(day.shoot_call) + '</span></div>' : '') +
+      (day.wrap ? '<div class="csp-call sm"><span class="l">' + esc(T('wrap')) + '</span><span class="v">' + esc(day.wrap) + '</span></div>' : '') +
+      '</div></section>';
+
+    h += respondCard();
+
+    // location
+    h += '<section class="csp-card"><div class="csp-h">' + ICON.pin.replace('<svg', '<svg width="16" height="16"') + esc(T('location')) + '</div>' +
+      '<div class="csp-kv"><span class="k">' + esc(T('setLoc')) + '</span><span class="v">' + esc(c.location || T('tbc')) + '</span></div>' +
+      (c.location ? '<a class="csp-maps" href="' + esc(mapsUrl(c.location)) + '" target="_blank" rel="noopener">' + ICON.pin + esc(T('openMaps')) + '</a>' : '') +
+      (c.parking ? '<div class="csp-kv"><span class="k">' + esc(T('parking')) + '</span><span class="v">' + esc(c.parking) + '</span></div>' : '') +
+      '<div class="csp-kv"><span class="k">' + esc(T('hospital')) + '</span><span class="v">' + esc(c.hospital || '—') + '</span></div>' +
+      (c.hospital ? '<a class="csp-maps" href="' + esc(mapsUrl(c.hospital)) + '" target="_blank" rel="noopener">' + ICON.pin + esc(T('directions')) + '</a>' : '') +
+      '<div class="csp-kv"><span class="v" style="font-size:15px">' + esc(T('emergency')) + '</span></div></section>';
+
+    if (c.weather) h += '<section class="csp-card"><div class="csp-h">' + esc(T('weather')) + '</div><div style="font-size:16px;font-weight:600">' + esc(c.weather) + '</div></section>';
+    if (notes.length) h += '<section class="csp-card csp-notes-card"><div class="csp-h">' + ICON.alert.replace('<svg', '<svg width="16" height="16"') + esc(T('notes')) + '</div><ul class="csp-notes">' + notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></section>';
+
+    // schedule
+    var pages = schedule.reduce(function (s, x) { return s + (Number(x.pages_eighths) || 0); }, 0);
+    h += '<section class="csp-card"><div class="csp-h">' + esc(T('schedule')) + '</div>';
+    if (schedule.length) {
+      h += schedule.map(function (s) {
+        var meta = [s.time ? '<span class="csp-num">' + esc(s.time) + '</span>' : '', esc(dn(s.day_night)), '<span class="csp-num">' + esc(eighths(s.pages_eighths)) + '</span> ' + esc(T('pages'))].filter(Boolean).join(' · ');
+        return '<div class="csp-sc"><span class="csp-sc-num"><small>' + esc(T('scene')) + '</small>' + esc(s.num) + '</span><div class="csp-sc-body">' +
+          '<span class="csp-sc-h">' + esc(s.heading || s.location || '') + '</span>' + (s.synopsis ? '<span class="csp-sc-m" dir="auto">' + esc(s.synopsis) + '</span>' : '') +
+          '<span class="csp-sc-m">' + meta + '</span>' + (s.cast && s.cast.length ? '<span class="csp-sc-m" dir="auto"><strong>' + esc(T('cast')) + ':</strong> ' + esc(s.cast.join(', ')) + '</span>' : '') + '</div></div>';
+      }).join('');
+      h += '<div class="csp-sc-m">' + esc(T('scenes')(schedule.length)) + ' · <span class="csp-num">' + esc(eighths(pages)) + '</span> ' + esc(T('pages')) + (day.shoot_call ? ' · ' + esc(T('estimates')) : '') + '</div>';
+    } else h += '<div class="csp-sc-m">' + esc(T('noScenes')) + '</div>';
+    h += '</section>';
+
+    // cast
+    if (cast.length) {
+      h += '<section class="csp-card"><div class="csp-h">' + esc(T('cast')) + '</div>' + cast.map(function (r) {
+        var mine = me && r.person_id && r.person_id === me.id;
+        return '<div class="csp-row' + (mine ? ' me' : '') + '"><span class="n" dir="auto">' + esc(r.character) + '<span class="r">' + esc(r.talent || T('tbc')) + (mine ? ' · ' + esc(T('you')) : '') + '</span></span><span class="c">' + esc(r.call || '') + '</span></div>';
+      }).join('') + '</section>';
+    }
+
+    // crew by department
+    if (crew.length) {
+      h += '<section class="csp-card"><div class="csp-h">' + esc(T('crew')) + '</div><div>' + depts.map(function (dname) {
+        return '<div class="csp-dept">' + esc(dname) + '</div>' + crew.filter(function (p) { return p.dept === dname; }).map(function (p) {
+          var mine = me && p.id === me.id;
+          return '<div class="csp-row' + (mine ? ' me' : '') + '"><span class="n" dir="auto">' + esc(p.name) + (mine ? ' · ' + esc(T('you')) : '') + '<span class="r">' + esc(p.role || '') + '</span></span><span class="c">' + esc(p.call || '') + '</span></div>';
+        }).join('');
+      }).join('') + '</div></section>';
+    }
+
+    // contacts
+    if (contacts.length) {
+      h += '<section class="csp-card"><div class="csp-h">' + ICON.phone.replace('<svg', '<svg width="16" height="16"') + esc(T('contacts')) + '</div>' + contacts.map(function (k) {
+        var tel = String(k.phone || '').replace(/[^\d+]/g, '');
+        return '<div class="csp-row" style="align-items:center"><span class="n" dir="auto">' + esc(k.name) + '<span class="r">' + esc(k.role || '') + '</span></span>' +
+          (tel ? '<a class="csp-tel" href="tel:' + esc(tel) + '">' + ICON.phone + esc(k.phone) + '</a>' : '') + '</div>';
+      }).join('') + '</section>';
+    }
+
+    h += '<p class="csp-foot">' + esc(T('version')) + ' ' + esc(sheet.version) + (sheet.published_at ? ' · ' + esc(T('published')) + ' ' + esc(stamp(sheet.published_at)) : '') + '<br>' + esc(T('footer')) + '</p>';
+    h += '</div>';
+    root.innerHTML = h;
+  }
+
+  /* ---------- actions ---------- */
+  function toggleLang() {
+    lang = lang === 'ar' ? 'en' : 'ar';
+    lsSet('mph.cs.lang', lang);
+    applyLang();
+    if (sheet) render(); else load();
+  }
+
+  function recordViewed() {
+    if (!sheet) return;
+    var w = getWho();
+    var me = meRow();
+    var name = me ? me.name : (w.name || '');
+    var flag = lsGet(kViewed());
+    // at most one anonymous open and one named open per device and version
+    if (flag === 'named' || (flag === 'anon' && !name)) return;
+    lsSet(kViewed(), name ? 'named' : 'anon');
+    send('viewed', me ? me.id : null, name || null).catch(function () { /* views are best effort */ });
+  }
+
+  function send(status, personId, name) {
+    return sb.rpc('respond_call_sheet', { p_token: token, p_person: personId, p_name: name, p_status: status }).then(function (res) {
+      if (res.error && personId) {
+        // the person may have been removed from the crew list since publishing: record by name only
+        return sb.rpc('respond_call_sheet', { p_token: token, p_person: null, p_name: name, p_status: status }).then(function (r2) { if (r2.error) throw r2.error; });
+      }
+      if (res.error) throw res.error;
+    });
+  }
+
+  function respond(status) {
+    var w = getWho();
+    var me = meRow();
+    var name = me ? me.name : (w.name || '').trim();
+    if (!name) {
+      var sel = document.getElementById('csp-who');
+      if (sel && sel.value === '__other') {
+        var inp = document.getElementById('csp-name');
+        name = inp ? inp.value.trim() : '';
+        if (name) { setWho({ id: null, name: name, other: true }); w = getWho(); }
+      }
+    }
+    if (!name) { errMsg = T('pickFirst'); render(); var s2 = document.getElementById('csp-who'); if (s2) s2.focus(); return; }
+    errMsg = ''; sending = true;
+    var btns = document.querySelectorAll('#csp-respond .csp-btn');
+    for (var i = 0; i < btns.length; i++) { btns[i].disabled = true; }
+    var clicked = document.querySelector('#csp-respond [data-act="' + status + '"] span');
+    if (clicked) clicked.textContent = T('sending');
+    send(status, me ? me.id : null, name).then(function () {
+      sending = false;
+      lsSet(kResp(), JSON.stringify({ status: status, at: Date.now(), name: name }));
+      lsSet(kViewed(), 'named'); // an answer implies they opened it; no separate named view needed
+      render();
+    }).catch(function () {
+      sending = false; errMsg = T('sendErr'); render();
+    });
+  }
+
+  root.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]');
+    if (!el || el.disabled) return;
+    var a = el.getAttribute('data-act');
+    if (a === 'lang') return toggleLang();
+    if (a === 'confirmed' || a === 'declined') return respond(a);
+    if (a === 'change') { try { localStorage.removeItem(kResp()); } catch (x) { /* ignore */ } errMsg = ''; render(); return; }
+    if (a === 'notyou') { setWho({ id: null, name: '', other: false }); try { localStorage.removeItem(kResp()); } catch (x) { /* ignore */ } errMsg = ''; render(); var s = document.getElementById('csp-who'); if (s) s.focus(); }
+  });
+  root.addEventListener('change', function (e) {
+    if (e.target.id !== 'csp-who') return;
+    var v = e.target.value;
+    var other = document.getElementById('csp-other');
+    if (v === '__other') { if (other) other.hidden = false; var n = document.getElementById('csp-name'); if (n) n.focus(); return; }
+    if (other) other.hidden = true;
+    if (!v) return;
+    var p = people().filter(function (x) { return x.id === v; })[0];
+    if (!p) return;
+    setWho({ id: p.id, name: p.name, other: false });
+    errMsg = '';
+    render();
+    recordViewed();
+  });
+  root.addEventListener('keydown', function (e) {
+    if (e.target.id === 'csp-name' && e.key === 'Enter') { e.preventDefault(); var v = e.target.value.trim(); if (v) { setWho({ id: null, name: v, other: true }); render(); recordViewed(); } }
+  });
+
+  /* ---------- load ---------- */
+  function load() {
+    if (!sb) return emptyScreen('link', T('ncTitle'), T('ncText'));
+    if (!token || !/^[A-Za-z0-9_-]{8,128}$/.test(token)) return emptyScreen('link', T('nfTitle'), T('nfText'));
+    root.innerHTML = '<div class="csp-empty"><div class="box"><span class="csp-spin" aria-hidden="true"></span><p>' + esc(T('loading')) + '</p></div></div>';
+    sb.rpc('get_call_sheet', { p_token: token }).then(function (res) {
+      if (res.error) { console.warn(res.error.message); return emptyScreen('alert', T('errTitle'), T('errText'), true); }
+      if (!res.data || !res.data.content) return emptyScreen('link', T('nfTitle'), T('nfText'));
+      sheet = res.data;
+      render();
+      recordViewed();
+    }).catch(function () { emptyScreen('alert', T('errTitle'), T('errText'), true); });
+  }
+  window.addEventListener('hashchange', function () { token = decodeURIComponent((location.hash || '').replace(/^#/, '')).trim(); sheet = null; errMsg = ''; load(); });
+  load();
+})();
+</script>
+</body>
+</html>
