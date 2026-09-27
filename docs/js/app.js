@@ -78,36 +78,93 @@
     return data;
   }
 
-  /* ------------------------------------------------------------ auth screens */
+  /* ------------------------------------------------------------ auth screens
+     Split layout: an animated picture of the product at work (stripboard strips drifting past, the AI
+     tagging a script line in English and Arabic) beside a minimal form. */
+  const STRIPS = [
+    ['1', 'EXT', 'Desert highway', '1/8', 'dawn'], ['2', 'INT', 'Majlis, Al Malqa', '2/8', 'intday'],
+    ['3', 'EXT', 'At-Turaif, Diriyah', '2/8', 'extday'], ['', '', 'End of day 1', '', 'break'],
+    ['4', 'EXT', 'Desert camp', '3/8', 'extnight'], ['5', 'EXT', 'Dune ridge', '1/8', 'dawn'],
+    ['6', 'INT', 'Studio packshot', '1/8', 'intday'], ['7', 'INT', 'Car interior', '1/8', 'intnight'],
+    ['', '', 'End of day 2', '', 'break'], ['8', 'EXT', 'Boulevard', '2/8', 'extnight'],
+    ['9', 'EXT', 'Wadi Hanifa', '3/8', 'extday'], ['10', 'INT', 'Coffee house', '2/8', 'intday'],
+  ];
+  const stripHtml = (list) => list.map(([n, ie, set, pg, k]) => k === 'break'
+    ? `<div class="aa-strip s-break">${esc(set)}</div>`
+    : `<div class="aa-strip s-${k}"><b>${n}</b><span>${ie} · ${esc(set)}</span><i>${pg}</i></div>`).join('');
+  const rotate = (arr, n) => arr.slice(n).concat(arr.slice(0, n));
+  function authArt() {
+    const col = (n, dur) => `<div class="aa-col" style="--dur:${dur}s"><div class="aa-track">${stripHtml(rotate(STRIPS, n))}${stripHtml(rotate(STRIPS, n))}</div></div>`;
+    return `
+      <aside class="aa" aria-hidden="true">
+        <div class="aa-strips">${col(0, 46)}${col(4, 62)}${col(8, 54)}</div>
+        <div class="aa-glow"></div>
+        <div class="aa-card">
+          <div class="aa-card-head"><span class="aa-live"></span>AI Breakdown<span class="aa-sc">Sc. 3</span></div>
+          <p class="aa-slug">EXT. AT-TURAIF, DIRIYAH – GOLDEN HOUR</p>
+          <p class="aa-line">The <mark class="aa-w w1 cat-vehicles">family SUV</mark> glides past the <mark class="aa-w w2 cat-location">mud-brick walls</mark>. <mark class="aa-w w3 cat-extras">Tourists</mark> turn to look.</p>
+          <p class="aa-line aa-ar" dir="rtl" lang="ar">نورة: «شف يبه… <mark class="aa-w w4 cat-vfx">نجمة تمشي</mark>!»</p>
+          <div class="aa-chips">
+            <span class="aa-chip c1 cat-vehicles">Vehicles</span><span class="aa-chip c2 cat-location">Location</span>
+            <span class="aa-chip c3 cat-extras">Extras ×12</span><span class="aa-chip c4 cat-vfx">VFX</span>
+          </div>
+        </div>
+        <div class="aa-foot">
+          <p class="aa-tag">From script to call sheet.</p>
+          <p class="aa-sub">One place for the whole shoot, in Arabic and English.</p>
+        </div>
+      </aside>`;
+  }
+  /* shared frame for sign-in, sign-up, setup and invite screens */
+  const authShell = (inner) => `
+    <div class="auth2">
+      ${authArt()}
+      <main class="auth-panel">
+        <div class="auth-inner">
+          <a class="auth-logo" href="#login" aria-label="${esc(cfg.brandLong)}"><span class="auth-mark">${esc(cfg.brand)}</span><span>${esc(cfg.brandLong)}</span></a>
+          ${inner}
+        </div>
+      </main>
+    </div>`;
+
   function authScreen(mode, info = {}) {
     const signup = mode === 'signup';
-    return `
-      <div class="auth">
-        <div class="auth-card">
-          <div class="row" style="gap:10px"><span class="auth-mark">${esc(cfg.brand)}</span><span class="small muted">${esc(cfg.brandLong)}</span></div>
-          <h1 class="h1">${info.title || (signup ? 'Create your account' : 'Sign in')}</h1>
-          ${info.sub ? `<p class="muted small">${info.sub}</p>` : ''}
-          <form id="auth-form" class="stack" novalidate>
-            ${signup ? `<div class="field"><label for="au-name">Full name</label><input id="au-name" class="input" autocomplete="name" required></div>` : ''}
-            <div class="field"><label for="au-email">Email</label><input id="au-email" class="input" type="email" autocomplete="email" value="${esc(info.email || '')}" required></div>
-            <div class="field"><label for="au-pass">Password</label><input id="au-pass" class="input" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="8" required>
-              ${signup ? '<span class="tiny faint">At least 8 characters.</span>' : ''}</div>
-            <div id="au-error" hidden></div>
-            <button class="btn btn-primary" type="submit" id="au-submit">${signup ? 'Create account' : 'Sign in'}</button>
-          </form>
-          <div class="row between small">
-            ${signup ? `<span class="muted">Already have an account? <a class="accent" href="#login${info.next ? '.' + info.next : ''}">Sign in</a></span>`
-                     : `<span class="muted">New here? <a class="accent" href="#signup${info.next ? '.' + info.next : ''}">Create an account</a></span><button class="btn btn-ghost btn-xs" type="button" id="au-forgot">Forgot password</button>`}
-          </div>
-          <a class="small muted row" href="${esc(cfg.demoUrl)}" target="_blank" rel="noopener">${ui.icon('play')}See the click-through demo</a>
+    const nx = info.next ? '.' + info.next : '';
+    return authShell(`
+      <div class="stack tight">
+        <h1 class="auth-title">${info.title || (signup ? 'Create your account' : 'Welcome back')}</h1>
+        <p class="muted">${info.sub || (signup ? 'Free to start. Unlimited seats for your whole house.' : 'Sign in to your production house.')}</p>
+      </div>
+      ${info.title ? '' : `<div class="auth-switch" role="tablist">
+        <a href="#login${nx}" role="tab" aria-selected="${!signup}" class="${signup ? '' : 'on'}">Sign in</a>
+        <a href="#signup${nx}" role="tab" aria-selected="${signup}" class="${signup ? 'on' : ''}">Create account</a>
+      </div>`}
+      <form id="auth-form" class="auth-form" novalidate>
+        ${signup ? `<div class="field"><label for="au-name">Full name</label><input id="au-name" class="input" autocomplete="name" placeholder="Saud Al-…" required></div>` : ''}
+        <div class="field"><label for="au-email">Email</label><input id="au-email" class="input" type="email" autocomplete="email" placeholder="you@company.com" value="${esc(info.email || '')}" required></div>
+        <div class="field">
+          <div class="row between"><label for="au-pass">Password</label>${signup ? '<span class="tiny faint">8+ characters</span>' : '<button class="auth-link" type="button" id="au-forgot">Forgot?</button>'}</div>
+          <div class="auth-pass"><input id="au-pass" class="input" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="8" required>
+            <button type="button" class="auth-eye" id="au-eye" aria-label="Show password">${ui.icon('eye')}</button></div>
         </div>
-      </div>`;
+        <div id="au-error" hidden></div>
+        <button class="btn btn-primary auth-submit" type="submit" id="au-submit">${signup ? 'Create account' : 'Sign in'}${ui.icon('arrow-right')}</button>
+      </form>
+      <a class="auth-demo" href="${esc(cfg.demoUrl)}" target="_blank" rel="noopener">${ui.icon('play')}Just looking? Watch the click-through demo</a>`);
   }
 
   function mountAuth(mode, next) {
     const form = document.getElementById('auth-form');
     const err = document.getElementById('au-error');
     const show = (m) => { err.hidden = false; err.innerHTML = ui.errorBox(m); icons(); };
+    const eye = document.getElementById('au-eye');
+    if (eye) eye.addEventListener('click', () => {
+      const f = document.getElementById('au-pass');
+      const showing = f.type === 'text';
+      f.type = showing ? 'password' : 'text';
+      eye.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+      eye.innerHTML = ui.icon(showing ? 'eye' : 'eye-off'); icons();
+    });
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('au-email').value.trim();
@@ -120,7 +177,7 @@
           const name = document.getElementById('au-name').value.trim();
           const { data, error } = await api.signUp(email, pass, name);
           if (error) throw error;
-          if (!data.session) { show('Check your email to confirm your account, then sign in.'); btn.disabled = false; btn.textContent = 'Create account'; return; }
+          if (!data.session) { show('Check your email to confirm your account, then sign in.'); btn.disabled = false; btn.innerHTML = `Create account${ui.icon('arrow-right')}`; icons(); return; }
         } else {
           const { error } = await api.signIn(email, pass);
           if (error) throw new Error(error.message === 'Invalid login credentials' ? 'That email and password don’t match an account.' : error.message);
@@ -128,7 +185,7 @@
         await api.loadSession();
         go(next ? decodeURIComponent(next) : 'home');
       } catch (ex) {
-        show(ex.message); btn.disabled = false; btn.textContent = mode === 'signup' ? 'Create account' : 'Sign in';
+        show(ex.message); btn.disabled = false; btn.innerHTML = `${mode === 'signup' ? 'Create account' : 'Sign in'}${ui.icon('arrow-right')}`; icons();
       }
     });
     const forgot = document.getElementById('au-forgot');
@@ -142,20 +199,22 @@
 
   /* first run: create the production house */
   function setupScreen() {
-    return `
-      <div class="auth"><div class="auth-card">
-        <span class="eyebrow">Welcome, ${esc(MPH.session.profile.full_name || '')}</span>
-        <h1 class="h1">Set up your production house</h1>
-        <p class="muted small">Your house holds your productions, team and rate history. You can invite producers, heads of department and clients once it’s set up. If someone invited you, open the invite link they sent instead.</p>
-        <form id="setup-form" class="stack">
-          <div class="field"><label for="su-name">House name</label><input id="su-name" class="input" placeholder="e.g. Life Circles" required></div>
-          <div class="field"><label for="su-name-ar">Name in Arabic (optional)</label><input id="su-name-ar" class="input ar" dir="rtl" placeholder="دوائر الحياة"></div>
+    return authShell(`
+      <div class="stack tight">
+        <span class="eyebrow">Welcome${MPH.session.profile.full_name ? ', ' + esc(MPH.session.profile.full_name.split(' ')[0]) : ''}</span>
+        <h1 class="auth-title">Set up your production house</h1>
+        <p class="muted">It holds your productions, team and rate history. Invited by someone? Open their invite link instead.</p>
+      </div>
+      <form id="setup-form" class="auth-form">
+        <div class="field"><label for="su-name">House name</label><input id="su-name" class="input" placeholder="e.g. Life Circles" required></div>
+        <div class="grid-2" style="gap:12px">
+          <div class="field"><label for="su-name-ar">Arabic name</label><input id="su-name-ar" class="input ar" dir="rtl" placeholder="دوائر الحياة"></div>
           <div class="field"><label for="su-city">City</label><input id="su-city" class="input" value="Riyadh"></div>
-          <div id="su-error" hidden></div>
-          <button class="btn btn-primary" type="submit">${ui.icon('building-2')}Create house</button>
-        </form>
-        <button class="btn btn-ghost btn-sm" data-act="signout">${ui.icon('log-out')}${t('Sign out')}</button>
-      </div></div>`;
+        </div>
+        <div id="su-error" hidden></div>
+        <button class="btn btn-primary auth-submit" type="submit">Create house${ui.icon('arrow-right')}</button>
+      </form>
+      <button class="auth-demo" data-act="signout">${ui.icon('log-out')}${t('Sign out')}</button>`);
   }
   function mountSetup() {
     document.getElementById('setup-form').addEventListener('submit', async (e) => {
@@ -175,16 +234,14 @@
   /* invite link */
   async function inviteScreen(token) {
     const info = (await MPH.sb.rpc('invite_info', { p_token: token })).data;
-    if (!info) return `<div class="auth"><div class="auth-card">${ui.empty('link-2-off', 'This invite link isn’t valid', 'Ask the producer to send you a new one.')}</div></div>`;
+    if (!info) return authShell(ui.empty('link-2-off', 'This invite link isn’t valid', 'Ask the producer to send you a new one.', `<a class="btn btn-outline" href="#login">Go to sign in</a>`));
     const what = info.role === 'client' ? `review <strong>${esc(info.production)}</strong> as the client` : `join <strong>${esc(info.org)}</strong> as ${info.role === 'hod' ? 'a head of department' : 'a ' + esc(info.role)}`;
-    if (info.used) return `<div class="auth"><div class="auth-card">${ui.empty('circle-check', 'This invite has already been used', 'Sign in to continue.', `<a class="btn btn-primary" href="#login">Sign in</a>`)}</div></div>`;
+    if (info.used) return authShell(ui.empty('circle-check', 'This invite has already been used', 'Sign in to continue.', `<a class="btn btn-primary" href="#login">Sign in</a>`));
     if (!MPH.session) return authScreen('signup', { title: 'You’re invited', sub: `Create an account to ${what}. Use ${esc(info.email)}.`, email: info.email, next: encodeURIComponent('invite.' + token) });
-    return `<div class="auth"><div class="auth-card">
-      <span class="eyebrow">Invite</span><h1 class="h1">You’re invited</h1>
-      <p class="muted">Accept to ${what}.</p>
+    return authShell(`
+      <div class="stack tight"><span class="eyebrow">Invite</span><h1 class="auth-title">You’re invited</h1><p class="muted">Accept to ${what}.</p></div>
       <div id="inv-error" hidden></div>
-      <button class="btn btn-primary" id="inv-accept">${ui.icon('check')}Accept invite</button>
-    </div></div>`;
+      <button class="btn btn-primary auth-submit" id="inv-accept">${ui.icon('check')}Accept invite</button>`);
   }
   function mountInvite(token) {
     const btn = document.getElementById('inv-accept');
@@ -304,7 +361,7 @@
     document.body.dataset.zone = 'production';
 
     if (!api.configured) {
-      app.innerHTML = `<div class="auth"><div class="auth-card">${ui.empty('plug', 'Not connected yet', 'Add the Supabase project URL and publishable key to js/config.js.')}</div></div>`;
+      app.innerHTML = authShell(ui.empty('plug', 'Not connected yet', 'Add the Supabase project URL and publishable key to js/config.js.'));
       return icons();
     }
     if (!MPH.session) await api.loadSession();
