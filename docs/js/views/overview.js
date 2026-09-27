@@ -125,7 +125,8 @@ MPH.view('overview', {
       const live = ph.tabs.filter((t) => t[3]).length;
       const tab = (id) => ph.tabs.find((x) => x[0] === id);
       const groups = (ph.groups || [['', ph.tabs.map((x) => x[0])]]).map(([label, ids], gi) => `
-        <div class="ov-group">
+        ${gi ? `<span class="ov-garrow" aria-hidden="true">${ui.icon('chevron-right')}</span>` : ''}
+        <div class="ov-group" style="--n:${ids.length}">
           ${label ? `<span class="ov-group-label"><b>${gi + 1}</b>${esc(ctx.t(label))}</span>` : ''}
           <div class="ov-group-cards" role="list">
             ${ids.map((id) => {
@@ -135,7 +136,7 @@ MPH.view('overview', {
             }).join('')}
           </div>
         </div>`).join('');
-      return `${pi ? `<span class="ov-arrow" aria-hidden="true">${ui.icon('arrow-right')}</span>` : ''}
+      return `${pi ? `<span class="ov-arrow" aria-hidden="true">${ui.icon('arrow-down')}</span>` : ''}
         <section class="ov-band ov-phase" style="--pc:${ph.color};animation-delay:${pi * 90}ms">
           <header class="ov-band-head">
             <span class="stack" style="gap:2px"><span class="ov-band-num">${ctx.t(num)}</span><span class="ov-band-title">${ctx.t(title)}</span></span>
