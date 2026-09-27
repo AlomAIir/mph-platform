@@ -1,0 +1,127 @@
+/* Production overview, pitch-deck style: film-set hero, stat tiles, phase bands with horizontal step cards. */
+.ov { gap: 22px; }
+
+/* ---------------- hero */
+.ov-hero { position: relative; min-height: 260px; border-radius: 20px; overflow: hidden; isolation: isolate; display: flex; align-items: flex-end;
+  box-shadow: 0 20px 50px -30px rgba(0, 0, 0, .8), inset 0 0 0 1px rgba(255, 255, 255, .04); animation: ov-rise .6s cubic-bezier(.2, .7, .2, 1) both; }
+.ov-hero-art { position: absolute; inset: 0; z-index: -2; }
+.ov-hero-art svg { width: 100%; height: 100%; display: block; }
+.ov-hero-shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(8, 17, 16, .92) 0%, rgba(8, 17, 16, .65) 38%, rgba(8, 17, 16, 0) 70%); }
+[dir="rtl"] .ov-hero-shade { background: linear-gradient(270deg, rgba(8, 17, 16, .92) 0%, rgba(8, 17, 16, .65) 38%, rgba(8, 17, 16, 0) 70%); }
+.ov-hero-body { padding: 28px 30px; display: flex; flex-direction: column; gap: 10px; max-width: 620px; }
+.ov-eyebrow { color: var(--accent); }
+.ov-title { margin: 0; font: 600 clamp(30px, 4vw, 44px)/1.05 var(--font-display); letter-spacing: -.025em; text-wrap: balance; }
+.ov-title .ar { font-size: .6em; opacity: .7; margin-inline-start: 10px; }
+.ov-summary { margin: 0; color: var(--text-2); max-width: 56ch; }
+.ov-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 4px; }
+.ov-chip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--text);
+  background: rgba(245, 244, 239, .08); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: inset 0 0 0 1px rgba(245, 244, 239, .08); }
+.ov-chip svg.lucide { width: 14px; height: 14px; color: var(--accent); }
+.ov-edit { position: absolute; inset-block-start: 16px; inset-inline-end: 16px; background: rgba(8, 17, 16, .55); border-color: rgba(245, 244, 239, .12); backdrop-filter: blur(6px); }
+
+/* hero animation: breathing light beams, twinkling stars, a rolling film strip, a gently panning camera */
+.a-beam { animation: ov-beam 6s ease-in-out infinite; }
+.a-beam.d2 { animation-delay: -3s; animation-duration: 7.5s; }
+@keyframes ov-beam { 0%, 100% { opacity: .75; transform: rotate(0deg); } 50% { opacity: 1; transform: rotate(-1.8deg); } }
+.a-star { animation: ov-star 3.2s ease-in-out infinite; }
+@keyframes ov-star { 0%, 100% { opacity: .25; } 50% { opacity: .95; } }
+.a-film { animation: ov-film 3s linear infinite; }
+@keyframes ov-film { from { transform: translate(0, 290px); } to { transform: translate(-28px, 290px); } }
+.a-cam { animation: ov-cam 9s ease-in-out infinite; }
+@keyframes ov-cam { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-4deg); } }
+
+/* ---------------- stat tiles */
+.ov-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.ov-tile { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 16px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line);
+  animation: ov-rise .5s cubic-bezier(.2, .7, .2, 1) both; flex-wrap: wrap; }
+.ov-tile-ico { width: 42px; height: 42px; flex: none; border-radius: 13px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.ov-tile-ico svg.lucide { width: 20px; height: 20px; }
+.ov-tile-v { font: 600 24px/1.1 var(--font-display); }
+.ov-tile-sub { margin-inline-start: auto; }
+@media (max-width: 980px) { .ov-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---------------- phase bands (pitch: coloured header bar over a dark band) */
+.ov-band { border-radius: 20px; overflow: hidden; background: #0F2624; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04); animation: ov-rise .6s cubic-bezier(.2, .7, .2, 1) both; }
+.ov-band:nth-of-type(2) { animation-delay: 80ms; } .ov-band:nth-of-type(3) { animation-delay: 160ms; }
+.ov-band-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; padding: 14px 22px; background: var(--pc); color: #10261F; position: relative; overflow: hidden; }
+.ov-band-head::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .25) 50%, transparent 70%);
+  transform: translateX(-100%); animation: ov-shine 7s ease-in-out infinite; }
+@keyframes ov-shine { 0%, 70% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+.ov-band-num { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; opacity: .72; }
+.ov-band-title { font: 700 20px/1.1 var(--font-display); letter-spacing: -.01em; }
+.ov-band-state { margin-inline-start: auto; font-size: 12px; font-weight: 700; opacity: .75; }
+
+/* horizontal row of step cards; scrolls sideways on narrow screens */
+.ov-steps { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 12px; padding: 16px; }
+.ov-step { position: relative; isolation: isolate; overflow: hidden; scroll-snap-align: start; display: flex; flex-direction: column; gap: 10px; min-height: 212px;
+  padding: 14px 14px 16px; border-radius: 16px; background: #143532; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05);
+  transition: transform .35s cubic-bezier(.3, 1.3, .5, 1), box-shadow .35s, background .35s; }
+.ov-step::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0; transition: opacity .35s;
+  background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 30%), color-mix(in srgb, var(--pc) 22%, transparent), transparent 70%); }
+.ov-step:hover { transform: translateY(-4px); background: #173B38; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc) 45%, transparent), 0 18px 34px -18px rgba(0, 0, 0, .7); }
+.ov-step:hover::before { opacity: 1; }
+.ov-step:focus-visible { outline: 2px solid var(--pc); outline-offset: 2px; }
+.ov-step-art { display: block; height: 104px; border-radius: 12px; background: radial-gradient(90% 90% at 50% 40%, rgba(255, 255, 255, .05), transparent 70%); }
+.ov-step-art svg { width: 100%; height: 100%; display: block; transition: transform .45s cubic-bezier(.3, 1.3, .5, 1); }
+.ov-step:hover .ov-step-art svg { transform: scale(1.06); }
+.ov-step-body { display: flex; flex-direction: column; gap: 4px; }
+.ov-step-name { display: flex; align-items: center; gap: 6px; font: 700 15.5px/1.2 var(--font-ui); color: var(--text); }
+.ov-step-line { font-size: 13px; line-height: 1.4; color: var(--text-2); }
+.ov-step.k-warn .ov-step-line { color: var(--warn); }
+.ov-step.k-ok .ov-step-line { color: var(--ok); }
+.ov-step.k-info .ov-step-line { color: var(--info); }
+.ov-step-bar { margin-block-start: auto; height: 5px; border-radius: 999px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.ov-step-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--pc); transition: width 1s cubic-bezier(.2, .8, .2, 1); animation: ov-bar 1.1s cubic-bezier(.2, .8, .2, 1) both .3s; }
+@keyframes ov-bar { from { width: 0; } }
+.ov-step-go { position: absolute; inset-block-start: 12px; inset-inline-end: 12px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(8, 17, 16, .55); color: var(--text); opacity: 0; transform: scale(.8); transition: opacity .25s, transform .3s cubic-bezier(.3, 1.4, .5, 1); }
+.ov-step-go svg.lucide { width: 15px; height: 15px; }
+[dir="rtl"] .ov-step-go svg.lucide { transform: scaleX(-1); }
+.ov-step:hover .ov-step-go { opacity: 1; transform: none; }
+/* steps arriving in a later phase: softer, still readable */
+.ov-step.soon { background: #112B29; }
+.ov-step.soon .ov-step-art svg { filter: saturate(.35) brightness(.8); opacity: .75; }
+.ov-step.soon .ov-step-line { color: var(--faint); }
+.ov-step.soon:hover .ov-step-art svg { filter: none; opacity: 1; }
+
+/* ---------------- step illustration animations (run on hover; a few idle ones always run) */
+.a-spin, .a-spin-slow, .a-sweep, .a-slide, .a-grow, .a-bob, .a-draw, .a-twinkle, .a-pulse, .a-clap, .a-drop, .a-playhead { transform-box: view-box; }
+.a-twinkle { animation: ov-twinkle 2.6s ease-in-out infinite; }
+.a-twinkle.d2 { animation-delay: -.9s; } .a-twinkle.d3 { animation-delay: -1.7s; }
+@keyframes ov-twinkle { 0%, 100% { transform: scale(.75); opacity: .6; } 50% { transform: scale(1.1); opacity: 1; } }
+.a-pulse { animation: ov-pulse 2.2s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+@keyframes ov-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+.ov-step:hover .a-spin { animation: ov-spin 2.4s cubic-bezier(.4, 0, .2, 1) infinite; }
+@keyframes ov-spin { to { transform: rotate(360deg); } }
+.a-spin-slow { animation: ov-spin 12s linear infinite; }
+.ov-step:hover .a-spin-slow { animation-duration: 3s; }
+.a-sweep { transform-box: fill-box; transform-origin: left center; }
+.ov-step:hover .a-sweep { animation: ov-sweep 2.4s cubic-bezier(.2, .8, .2, 1) infinite; }
+@keyframes ov-sweep { 0% { transform: scaleX(0); } 35%, 85% { transform: scaleX(1); } 100% { transform: scaleX(1); opacity: 0; } }
+.ov-step:hover .a-slide { animation: ov-slide 2.2s cubic-bezier(.3, 1.3, .5, 1) infinite; }
+@keyframes ov-slide { 0% { transform: translateX(-18px); opacity: 0; } 30%, 100% { transform: none; opacity: 1; } }
+.ov-step:hover .a-grow { animation: ov-grow 1.6s cubic-bezier(.3, 1.3, .5, 1) infinite alternate; }
+@keyframes ov-grow { from { transform: scaleY(.35); } to { transform: scaleY(1); } }
+.a-bob { transform-box: fill-box; transform-origin: bottom center; }
+.ov-step:hover .a-bob { animation: ov-bob 1.4s ease-in-out infinite; }
+.a-bob.d2 { animation-delay: -.45s !important; } .a-bob.d3 { animation-delay: -.9s !important; }
+@keyframes ov-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+.a-draw { stroke-dasharray: 40; stroke-dashoffset: 0; }
+.ov-step:hover .a-draw { animation: ov-draw 1.8s ease-in-out infinite; }
+@keyframes ov-draw { 0% { stroke-dashoffset: 40; } 45%, 100% { stroke-dashoffset: 0; } }
+.ov-step:hover .a-clap { animation: ov-clap 1.4s ease-in-out infinite; }
+@keyframes ov-clap { 0%, 60%, 100% { transform: rotate(0deg); } 20% { transform: rotate(-16deg); } }
+.ov-step:hover .a-drop { animation: ov-drop 1.6s cubic-bezier(.3, 1.4, .5, 1) infinite; }
+@keyframes ov-drop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-8px); } }
+.ov-step:hover .a-playhead { animation: ov-play 2.6s linear infinite; }
+@keyframes ov-play { from { transform: translateX(-40px); } to { transform: translateX(70px); } }
+
+@keyframes ov-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 760px) {
+  .ov-hero { min-height: 300px; }
+  .ov-hero-shade { background: linear-gradient(0deg, rgba(8, 17, 16, .95) 0%, rgba(8, 17, 16, .6) 55%, rgba(8, 17, 16, .1) 100%); }
+  .ov-hero-body { padding: 20px; }
+  .ov-steps { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 72%; overflow-x: auto; scroll-snap-type: x proximity; }
+  .ov-band-head { padding: 12px 16px; }
+}

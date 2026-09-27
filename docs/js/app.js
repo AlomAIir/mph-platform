@@ -18,7 +18,7 @@
       groups: [['treatment', 'script', 'docs'], ['breakdown'], ['shotlist', 'storyboard'], ['stripboard', 'budget', 'calendar']] },
     { id: 'prod', label: 'Production', icon: 'clapperboard', color: '#FAB771',
       tabs: [['crew', 'Crew & Talent', 'users', 1], ['locations', 'Locations', 'map-pin'], ['callsheets', 'Call Sheets', 'clipboard-list', 1], ['shootday', 'Shoot Day', 'radio']] },
-    { id: 'post', label: 'Post-production', icon: 'film', color: '#86B8E8',
+    { id: 'post', label: 'Post-production', icon: 'film', color: '#7FB2A6',
       tabs: [['dailies', 'Dailies & Media', 'hard-drive'], ['edit', 'Edit & Versions', 'scissors'], ['review', 'Review & Approvals', 'circle-check-big'],
              ['finishing', 'Finishing', 'wand-sparkles'], ['deliverables', 'Deliverables', 'package-check'], ['wrap', 'Wrap Report', 'file-bar-chart']] },
   ];
