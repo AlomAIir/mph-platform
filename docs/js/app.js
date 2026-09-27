@@ -110,8 +110,8 @@
           </div>
         </div>
         <div class="aa-foot">
-          <p class="aa-tag">From script to call sheet.</p>
-          <p class="aa-sub">One place for the whole shoot, in Arabic and English.</p>
+          <p class="aa-tag">Seamless production for every story.</p>
+          <p class="aa-sub">One connected workspace from first draft to final delivery. Script, schedule, budget and call sheets stay in step, so every shoot runs smoother and everyone on set knows exactly what’s next.</p>
         </div>
       </aside>`;
   }
