@@ -31,6 +31,7 @@ async function askJSON<T>(opts: {
   schema: Record<string, unknown>;
   maxTokens?: number;
   effort?: "low" | "medium" | "high";
+  timeoutMs?: number;
 }): Promise<T> {
   const stream = anthropic.beta.messages.stream({
     model: MODEL,
@@ -43,7 +44,11 @@ async function askJSON<T>(opts: {
     system: opts.system,
     messages: [{ role: "user", content: opts.content }],
     // deno-lint-ignore no-explicit-any
-  } as any);
+  } as any, {
+    // finish before the platform's 150 s wall clock, so the caller gets a clear "too slow" instead of a dropped request
+    timeout: opts.timeoutMs ?? 130_000,
+    maxRetries: 0,
+  });
   const msg = await stream.finalMessage();
   if (msg.stop_reason === "refusal") throw new HttpError(422, "The AI declined to process this content.");
   if (msg.stop_reason === "max_tokens") throw new HttpError(422, "The script is too long to process in one pass. Split it into parts and try again.");
@@ -70,13 +75,21 @@ const arr = (items: unknown) => ({ type: "array", items });
 const CATEGORIES = ["cast", "extras", "props", "wardrobe", "makeup", "vehicles", "location", "sfx", "equipment", "animals", "sound", "vfx", "stunts"];
 
 // ------------------------------------------------------------------ actions
-async function breakdown(db: SupabaseClient, p: { production_id: string; script_id: string }) {
+/* Long scripts are broken down in parts so each call stays inside the server's time limit. The browser splits the
+   document and sends one part per call: either `file_path` (a page range saved as its own PDF under the production's
+   folder) or `text` (a slice of the script text), with `part`/`parts`/`pages` describing where it sits. */
+async function breakdown(db: SupabaseClient, p: { production_id: string; script_id: string; file_path?: string; text?: string; part?: number; parts?: number; pages?: string }) {
   const { data: script, error } = await db.from("scripts").select("*").eq("id", p.script_id).eq("production_id", p.production_id).single();
   if (error || !script) throw new HttpError(404, "Script not found, or you don't have access to it.");
+  if (p.file_path && !p.file_path.startsWith(`${p.production_id}/`)) throw new HttpError(400, "That file doesn't belong to this production.");
+  if (p.text && p.text.length > 80000) throw new HttpError(413, "This part of the script is too long. Split it into smaller parts.");
+  const filePath = p.file_path || (script.source_type === "pdf" ? script.file_path : null);
 
   const content: Anthropic.Beta.BetaContentBlockParam[] = [];
-  if (script.file_path && script.source_type === "pdf") {
-    const { data: file, error: dlErr } = await db.storage.from("scripts").download(script.file_path);
+  if (p.text?.trim()) {
+    content.push({ type: "text", text: `<script>\n${p.text}\n</script>` });
+  } else if (filePath) {
+    const { data: file, error: dlErr } = await db.storage.from("scripts").download(filePath);
     if (dlErr || !file) throw new HttpError(404, "The script file could not be read from storage.");
     const bytes = new Uint8Array(await file.arrayBuffer());
     let bin = "";
@@ -87,7 +100,13 @@ async function breakdown(db: SupabaseClient, p: { production_id: string; script_
   } else {
     throw new HttpError(400, "This script has no text or file to read.");
   }
-  content.push({ type: "text", text: "Break down this script." });
+  const multi = (p.parts ?? 1) > 1;
+  content.push({
+    type: "text",
+    text: multi
+      ? `This is part ${p.part} of ${p.parts} of a longer document${p.pages ? ` (pages ${p.pages})` : ""}. Break down only what is in this part, numbering scenes from 1 within it. If the part starts in the middle of a scene that began in the previous part, include it as the first scene with the same heading followed by " (cont.)". Set runtime_seconds to 0 unless this part states the spot's runtime.`
+      : "Break down this script.",
+  });
 
   const schema = obj({
     language: { type: "string", enum: ["ar", "en", "ar+en"] },
@@ -131,7 +150,8 @@ Include implied needs a producer would want flagged (e.g. a generator for a nigh
 runtime_seconds: the spot's runtime if timecodes or durations are given, else your estimate.
 notes: one or two sentences on anything the producer should check (e.g. permits, child performers, night drone use).`;
 
-  const out = await askJSON<{ scenes: unknown[] }>({ system, content, schema, effort: "medium", maxTokens: 64000 });
+  // parts of long documents use lighter thinking so each one returns well inside the time limit
+  const out = await askJSON<{ scenes: unknown[] }>({ system, content, schema, effort: multi ? "low" : "medium", maxTokens: 64000 });
   return out;
 }
 
@@ -249,6 +269,9 @@ Deno.serve(async (req) => {
     }
   } catch (err) {
     if (err instanceof HttpError) return json({ error: err.message }, err.status);
+    if (err instanceof Anthropic.APIConnectionTimeoutError) {
+      return json({ error: "This part took the AI too long to read.", code: "too_slow" }, 504);
+    }
     if (err instanceof Anthropic.RateLimitError) return json({ error: "The AI is busy. Try again in a minute." }, 429);
     if (err instanceof Anthropic.AuthenticationError) return json({ error: "The AI key is invalid. Check the ANTHROPIC_API_KEY secret." }, 503);
     if (err instanceof Anthropic.APIError) return json({ error: `AI service error (${err.status ?? "network"}). Try again.` }, 502);

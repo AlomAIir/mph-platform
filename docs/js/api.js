@@ -62,9 +62,19 @@
   api.ai = async (action, payload) => {
     const { data, error } = await sb.functions.invoke('ai', { body: { action, ...payload } });
     if (error) {
-      let msg = error.message;
-      try { const body = await error.context.json(); if (body?.error) msg = body.error; } catch (e) { /* not JSON */ }
-      throw new Error(msg);
+      // turn gateway errors into something a producer can act on; prefer the function's own message when it sent one
+      const status = error.context && error.context.status;
+      let msg = {
+        504: 'The AI took longer than the server allows for one request. Try again; long scripts are now read in parts.',
+        546: 'The AI took longer than the server allows for one request. Try again; long scripts are now read in parts.',
+        413: 'This file is too large to send in one go.',
+        429: 'The AI is busy right now. Wait a minute and try again.',
+        401: 'Your session has expired. Sign in again.',
+      }[status] || (error.name === 'FunctionsFetchError' ? 'Couldn’t reach the AI service. Check your connection and try again.' : `The AI service returned an error${status ? ` (${status})` : ''}. Try again.`);
+      let code = [504, 546].includes(status) ? 'too_slow' : null;
+      try { const body = await error.context.clone().json(); if (body?.error) msg = body.error; if (body?.code) code = body.code; } catch (e) { /* not JSON */ }
+      const ex = new Error(msg); ex.status = status; ex.code = code;
+      throw ex;
     }
     return data;
   };

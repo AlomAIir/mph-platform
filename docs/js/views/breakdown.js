@@ -95,6 +95,132 @@
     });
   }
 
+  /* ------------------------------------------------------------ long scripts: read in parts, in parallel
+     One AI call must finish inside the server's time limit (about 150 s), so PDFs longer than a few pages and long
+     texts are split, read three parts at a time, then stitched back together in order. */
+  const PART_PAGES = 4, PART_CHARS = 14000, PARALLEL = 3;
+  const loadLib = (src, name) => window[name] ? Promise.resolve(window[name]) : new Promise((ok, bad) => {
+    const s = document.createElement('script'); s.src = src; s.onload = () => ok(window[name]); s.onerror = () => bad(new Error('Couldn’t load the PDF tools. Check your connection.')); document.head.appendChild(s);
+  });
+
+  async function pdfParts(ctx, script) {
+    const { data: blob, error } = await ctx.sb.storage.from('scripts').download(script.file_path);
+    if (error || !blob) throw new Error('The script file couldn’t be read from storage.');
+    const PDFLib = await loadLib('https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js', 'PDFLib');
+    const src = await PDFLib.PDFDocument.load(await blob.arrayBuffer(), { ignoreEncryption: true });
+    const n = src.getPageCount();
+    if (n <= PART_PAGES) return null; // short enough for one call
+    const parts = [];
+    for (let start = 0; start < n; start += PART_PAGES) parts.push({ idx: Array.from({ length: Math.min(PART_PAGES, n - start) }, (_, k) => start + k) });
+    return { src, n, parts, stamp: Date.now(), made: 0 };
+  }
+  /* save a page range as its own PDF (only when a worker is about to send it) */
+  async function makePdfPart(ctx, script, doc, part) {
+    const out = await PDFLib.PDFDocument.create();
+    (await out.copyPages(doc.src, part.idx)).forEach((pg) => out.addPage(pg));
+    const path = `${ctx.production.id}/parts/${script.id}-${doc.stamp}-${++doc.made}.pdf`;
+    ctx.api.must(await ctx.sb.storage.from('scripts').upload(path, new Blob([await out.save()], { type: 'application/pdf' }), { contentType: 'application/pdf' }));
+    const a = part.idx[0] + 1, b = part.idx[part.idx.length - 1] + 1;
+    return { file_path: path, pages: `${a === b ? a : `${a}–${b}`} of ${doc.n}` };
+  }
+
+  function textParts(text, force = false) {
+    if (!text || (!force && text.length <= PART_CHARS * 1.3)) return null;
+    if (force && text.length <= PART_CHARS) return splitText(text);
+    // cut at scene headings (INT./EXT./numbered scenes) where possible, otherwise at blank lines
+    const cuts = [];
+    let pos = 0;
+    while (text.length - pos > PART_CHARS) {
+      const win = text.slice(pos + PART_CHARS * 0.6, pos + PART_CHARS);
+      const m = [...win.matchAll(/\n(?=\s*(?:\d+[.)]?\s+)?(?:INT|EXT|I\/E|داخلي|خارجي)[.\s])/gi)].pop() || [...win.matchAll(/\n\s*\n/g)].pop();
+      const cut = pos + Math.round(PART_CHARS * 0.6) + (m ? m.index + 1 : win.length);
+      cuts.push(text.slice(pos, cut)); pos = cut;
+    }
+    cuts.push(text.slice(pos));
+    return cuts.map((t) => ({ text: t }));
+  }
+
+  /* one merged answer, shaped like a single-call breakdown */
+  function mergeParts(outs) {
+    const scenes = [];
+    let runtime = 0; const notes = []; const langs = new Set();
+    outs.forEach((o) => {
+      (o.scenes || []).forEach((s) => {
+        const cont = /\(cont(\.|inued)?\)\s*$/i.test(s.heading || '');
+        const prev = scenes[scenes.length - 1];
+        if (cont && prev) {
+          prev.text = [prev.text, s.text].filter(Boolean).join('\n');
+          prev.elements = (prev.elements || []).concat(s.elements || []);
+          prev.pages_eighths = (Number(prev.pages_eighths) || 0) + (Number(s.pages_eighths) || 0);
+          prev.est_minutes = (Number(prev.est_minutes) || 0) + (Number(s.est_minutes) || 0);
+        } else scenes.push({ ...s });
+      });
+      if (Number(o.runtime_seconds) > runtime) runtime = Number(o.runtime_seconds);
+      if (o.notes && !notes.includes(o.notes.trim())) notes.push(o.notes.trim());
+      if (o.language) langs.add(o.language);
+    });
+    scenes.forEach((s, i) => { s.num = String(i + 1); });
+    const language = langs.has('ar+en') || (langs.has('ar') && langs.has('en')) ? 'ar+en' : [...langs][0];
+    return { scenes, runtime_seconds: runtime || null, notes: notes.join(' '), language };
+  }
+
+  async function runBreakdown(ctx, script, run) {
+    const pid = ctx.production.id;
+    const one = () => ctx.api.ai('breakdown', { production_id: pid, script_id: script.id });
+    let doc = null, parts = null;
+    if (script.source_type === 'pdf' && script.file_path) {
+      run.stage = 'Preparing the PDF';
+      doc = await pdfParts(ctx, script);
+      if (doc) parts = doc.parts;
+    } else parts = textParts(script.raw_text);
+
+    // short scripts: one call. If even that is too slow, fall through to reading it in parts.
+    if (!parts) {
+      try { return await one(); } catch (err) {
+        if (err.code !== 'too_slow') throw err;
+        if (doc === null && script.source_type === 'pdf') throw new Error('This PDF is taking the AI too long to read. Try again, or split it into smaller files.');
+        parts = textParts(script.raw_text, true);
+        if (!parts) throw err;
+      }
+    }
+
+    // parts are read three at a time; a part that is still too slow is split in half and put back in its place
+    const uploaded = [];
+    const pendingPart = () => parts.find((x) => !x.out && !x.busy);
+    const worker = async () => {
+      for (let part = pendingPart(); part; part = pendingPart()) {
+        part.busy = true;
+        try {
+          const payload = doc ? await makePdfPart(ctx, script, doc, part) : { text: part.text };
+          if (payload.file_path) uploaded.push(payload.file_path);
+          const i = parts.indexOf(part);
+          part.out = await ctx.api.ai('breakdown', { production_id: pid, script_id: script.id, ...payload, part: i + 1, parts: parts.length });
+        } catch (err) {
+          const size = doc ? part.idx.length : part.text.length;
+          if (err.code !== 'too_slow' || size <= (doc ? 1 : 2000)) throw err;
+          const halves = doc
+            ? [{ idx: part.idx.slice(0, Math.ceil(size / 2)) }, { idx: part.idx.slice(Math.ceil(size / 2)) }]
+            : splitText(part.text);
+          parts.splice(parts.indexOf(part), 1, ...halves);
+        }
+        const done = parts.filter((x) => x.out).length;
+        run.stage = `Read ${done} of ${parts.length} parts`;
+      }
+    };
+    run.stage = `Reading ${parts.length} parts`;
+    try {
+      await Promise.all(Array.from({ length: Math.min(PARALLEL, parts.length) }, worker));
+    } finally {
+      if (uploaded.length) await ctx.sb.storage.from('scripts').remove(uploaded);
+    }
+    return mergeParts(parts.map((x) => x.out));
+  }
+  const splitText = (t) => {
+    const mid = Math.floor(t.length / 2);
+    const cut = t.lastIndexOf('\n', mid) > mid * 0.5 ? t.lastIndexOf('\n', mid) + 1 : mid;
+    return [{ text: t.slice(0, cut) }, { text: t.slice(cut) }];
+  };
+
   function startRun(ctx, script, opts = {}) {
     const { sb, api } = ctx;
     const pid = ctx.production.id;
@@ -102,7 +228,7 @@
     run.promise = (async () => {
       try {
         api.must(await sb.from('scripts').update({ breakdown_status: 'running', breakdown_at: new Date().toISOString() }).eq('id', script.id));
-        const out = await api.ai('breakdown', { production_id: pid, script_id: script.id });
+        const out = await runBreakdown(ctx, script, run);
         const scenes = clean(out);
         if (!scenes.length) throw new Error('The AI didn’t find any scenes. Check that this version holds the script itself, then run it again.');
         run.stage = 'Saving scenes and elements';
