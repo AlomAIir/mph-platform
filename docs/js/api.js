@@ -87,6 +87,38 @@
     return path;
   };
 
+  /* media (images and files) in the private "media" bucket.
+     scope 'client'   → <pid>/client/<sub>/…   (a client may open it once the row that uses it is shared with them)
+     scope 'internal' → <pid>/internal/<sub>/… (team only: receipts, internal documents, location photos) */
+  api.uploadMedia = async (productionId, file, scope = 'internal', sub = 'files') => {
+    if (!['client', 'internal'].includes(scope)) throw new Error('Unknown media scope');
+    const safe = (file.name || 'file').replace(/[^\w.\-]+/g, '_').slice(-80);
+    const path = `${productionId}/${scope}/${sub}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${safe}`;
+    api.must(await sb.storage.from('media').upload(path, file, { contentType: file.type || 'application/octet-stream' }));
+    return path;
+  };
+  const urlCache = new Map();
+  /* a signed link valid for an hour, cached for 50 minutes */
+  api.mediaUrl = async (path) => {
+    if (!path) return null;
+    const hit = urlCache.get(path);
+    if (hit && hit.until > Date.now()) return hit.url;
+    const { data, error } = await sb.storage.from('media').createSignedUrl(path, 3600);
+    if (error) return null;
+    urlCache.set(path, { url: data.signedUrl, until: Date.now() + 50 * 60 * 1000 });
+    return data.signedUrl;
+  };
+  /* sign many paths in one request: returns { path: url } */
+  api.mediaUrls = async (paths) => {
+    const need = [...new Set(paths.filter(Boolean))].filter((p) => !(urlCache.get(p)?.until > Date.now()));
+    if (need.length) {
+      const { data } = await sb.storage.from('media').createSignedUrls(need, 3600);
+      (data || []).forEach((d) => { if (d.signedUrl) urlCache.set(d.path, { url: d.signedUrl, until: Date.now() + 50 * 60 * 1000 }); });
+    }
+    return Object.fromEntries(paths.filter(Boolean).map((p) => [p, urlCache.get(p)?.url || null]));
+  };
+  api.removeMedia = async (paths) => { const list = [].concat(paths).filter(Boolean); if (list.length) await sb.storage.from('media').remove(list); };
+
   /* realtime-free "next number" helper for versions/sorts */
   api.nextVersion = async (table, productionId, column = 'version') => {
     const { data } = await sb.from(table).select(column).eq('production_id', productionId).order(column, { ascending: false }).limit(1);

@@ -55,5 +55,28 @@ toast(msg, icon?), toastError(err), modal(html,{wide}), drawer(html), closeOverl
 Dark only. Use the design-system tokens and classes (see `css/app.css`): `.page .page-head .panel .card .btn(-primary/-outline/-ghost/-sm/-xs) .pill .chip .tag.cat-<id> .hl.cat-<id>(.suggested) .table .tabs .seg .field .input .select .textarea .toggle .callout .list .list-row .row .stack .grid-2/3/4 .split .kv .h1/.h2/.h3 .muted .small .mono .num .ar`, plus platform additions `.cell-input` (inline table editing), `.dropzone`, `.spin`. Match the click-through demo's screens for look and layout. Its source is in `C:\Claude\MPH\js\views\` (read only, for reference). Use logical CSS properties for RTL. Prefix new classes with your module prefix, in your own stylesheet only.
 Copy: plain, specific, active voice. Buttons say exactly what happens. No lorem ipsum, no emoji. Real users will type real data, so design good empty states that tell them what to do first.
 
+## Newer schema and helpers (read before building the new modules)
+- Migrations: `supabase/migrations/*phase1_core.sql`, `*profile_onboarding.sql`, `*preprod_prod_modules.sql`. The last one adds treatments, lookbook_items,
+  storyboard_frames, events, locations (+ shoot_days.location_id), attendance, day_logs, change_orders + change_order_costs (internal),
+  receipts (internal), documents, rate_cards (per workspace, owners/producers only), productions.share_storyboard / share_calendar,
+  RPCs decide_treatment / decide_change_order, and a private `media` storage bucket.
+- Media: `await ctx.api.uploadMedia(pid, file, 'client'|'internal', 'lookbook')` → path; `await ctx.api.mediaUrls([paths])` → {path: signedUrl};
+  `ctx.api.mediaUrl(path)`; `ctx.api.removeMedia(paths)`. Files a client may see MUST use scope 'client'; receipts/internal docs/location photos 'internal'.
+- AI actions (all POST via `ctx.api.ai(action, {...})`, all need `production_id`):
+  - `treatment` {brief?, sections?[]} → {title, sections:[{title, body}]}
+  - `ratecard` {file_path (media bucket), text?} → {lines:[{category, item, unit, rate, who, notes}], job:{shoot_days,total,summary}}
+  - `receipt` {file_path (media, image or PDF)} → {vendor, vat_number, receipt_date, currency, total, vat, lines[], budget_line_id, match_reason, readable}
+  - `budget` {brief?, shoot_days?, client_location?, crew_level: 'lean'|'standard'|'premium'} (now uses the workspace rate card)
+- Errors from `ctx.api.ai` carry `err.code` ('too_slow') and `err.status`.
+- Scenes: always read `active_scenes` (latest broken-down script version), never `scenes`, for anything except writes.
+- Workspace id for rate cards: `ctx.production.org_id`.
+- Client-visible modules: overview, treatment, script, storyboard (only when productions.share_storyboard), calendar (non-internal events,
+  when share_calendar), budget (bid + sent change orders), docs (client_shared only). Always check `ctx.isClient` and never query internal tables then.
+
 ## Testing
+**Signed-in session for testing:** the browser pane is signed in to a test account whose profile hasn't finished onboarding, so the app shows the
+"Tell us about you" screen. Don't complete it. Instead, in your own tab run `await MPH.api.loadSession(); MPH.session.profile.onboarded_at = 'test'; MPH.render();`
+(in memory only; no database change) to reach the real app with real data. Create test data ONLY in a production whose title starts with
+"Test · " and delete it (and any media you uploaded) when done. Never touch other productions. AI calls cost real money: keep them few.
+
 The site is served at **http://localhost:5173/platform/docs/** (the already-running preview server serves C:\Claude\MPH, so the platform lives under /platform/docs/). You can only test against the live database once the lead has connected it and the user has signed in in the browser pane. Open your OWN tab (`mcp__Claude_Browser__tabs_create`) and pass its tabId to every browser call. You share the user's signed-in session, and **anything you create is real data in the user's project**: put test data only in a production named "Test · <your module>", and delete it when you're done. Never delete or edit anything else. Until then, check syntax with `node --check <file>` (Node is at `C:\Program Files\nodejs`) and self-review carefully.

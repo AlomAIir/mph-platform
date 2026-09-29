@@ -27,6 +27,13 @@ MPH.view('overview', {
       ]);
       return { scripts: scripts.data || [], bids: bids.data || [] };
     }
+    const [treat, frames, events, locs] = await Promise.all([
+      q('treatments', 'version, status'),
+      q('storyboard_frames', 'id'),
+      ctx.sb.from('events').select('id, starts_at').eq('production_id', pid).gte('starts_at', new Date().toISOString()),
+      q('locations', 'id, permit_status'),
+    ]);
+    const extra = { treatments: treat.data || [], frames: frames.data || [], events: events.data || [], locations: locs.data || [] };
     const [scripts, scenes, elements, shots, days, people, sheets, lines, bids] = await Promise.all([
       q('scripts', 'id, version, locked, breakdown_status'),
       ctx.sb.from('active_scenes').select('id, shoot_day_id').eq('production_id', pid),
@@ -42,6 +49,7 @@ MPH.view('overview', {
       scripts: scripts.data || [], scenes: scenes.data || [], elements: elements.data || [], shots: shots.data || [],
       days: days.data || [], people: people.data || [], sheets: sheets.data || [], lines: lines.data,
       bids: (bids.data || []).sort((a, b) => b.version - a.version),
+      ...extra,
     };
   },
 
@@ -111,6 +119,19 @@ MPH.view('overview', {
       crew: d.people.length ? [`${d.people.length} people · ${confirmed} confirmed`, confirmed === d.people.length ? 'ok' : '', confirmed / d.people.length] : ['Add your crew', '', 0],
       callsheets: published.length ? [`${daysWithSheet} of ${d.days.length || daysWithSheet} days sent`, 'ok', d.days.length ? daysWithSheet / d.days.length : 1] : [d.days.length ? 'Create the first call sheet' : 'Needs shoot days', '', 0],
     };
+    const tLatest = [...(d.treatments || [])].sort((a, b) => b.version - a.version)[0];
+    status.treatment = !tLatest ? ['Write it, or draft it with AI', '', 0]
+      : tLatest.status === 'approved' ? [`v${tLatest.version} approved by the client`, 'ok', 1]
+      : tLatest.status === 'sent' ? [`v${tLatest.version} waiting on the client`, 'warn', .7]
+      : tLatest.status === 'changes_requested' ? [`v${tLatest.version}: changes requested`, 'warn', .5]
+      : [`v${tLatest.version} draft`, '', .4];
+    status.storyboard = d.frames?.length ? [`${d.frames.length} frame${d.frames.length === 1 ? '' : 's'}${p.share_storyboard ? ' · shared' : ''}`, p.share_storyboard ? 'ok' : '', d.shots.length ? Math.min(1, d.frames.length / d.shots.length) : 1] : [d.shots.length ? 'Board it from the shot list' : 'Add frames', '', 0];
+    status.calendar = d.events?.length ? [`${d.events.length} upcoming event${d.events.length === 1 ? '' : 's'}`, '', 1] : ['Plan recces, casting and reviews', '', 0];
+    const locs = d.locations || [];
+    const approved = locs.filter((l) => ['approved', 'not_needed'].includes(l.permit_status)).length;
+    status.locations = locs.length ? [`${locs.length} location${locs.length === 1 ? '' : 's'} · ${approved} cleared`, approved === locs.length ? 'ok' : 'warn', approved / locs.length] : ['Add your locations and permits', '', 0];
+    const todayDay = d.days.find((x) => x.date === MPH.today());
+    status.shootday = todayDay ? [`Shooting today · Day ${todayDay.day_no}`, 'info', .5] : d.days.length ? ['Opens on the shoot day', '', 0] : ['Needs shoot days', '', 0];
 
     const phaseState = (ph) => {
       const order = MPH.PHASES.map((x) => x.id), cur = order.indexOf(MPH.phaseOf(p));

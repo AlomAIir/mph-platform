@@ -43,7 +43,8 @@
     return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
   };
   MPH.time = (t) => (t ? String(t).slice(0, 5) : '');
-  MPH.today = () => new Date().toISOString().slice(0, 10);
+  /* local calendar date (Riyadh is UTC+3, so a UTC date is wrong for the first hours after midnight) */
+  MPH.today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   MPH.daysUntil = (iso) => iso ? Math.round((new Date(iso + 'T00:00:00') - new Date(MPH.today() + 'T00:00:00')) / 86400000) : null;
   MPH.eighths = (n) => { n = Number(n) || 0; const w = Math.floor(n / 8), r = n % 8; return w ? (r ? `${w} ${r}/8` : `${w}`) : `${r}/8`; };
   MPH.hue = (s) => { let h = 0; for (const c of String(s || '')) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };

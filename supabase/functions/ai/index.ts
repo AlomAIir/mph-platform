@@ -205,10 +205,83 @@ async function schedule(db: SupabaseClient, p: { production_id: string; days?: n
   });
 }
 
-async function budget(db: SupabaseClient, p: { production_id: string; brief?: string }) {
+/* read a file from storage as a Claude content block (PDF document or image) */
+async function fileBlock(db: SupabaseClient, bucket: string, path: string): Promise<Anthropic.Beta.BetaContentBlockParam> {
+  const { data: file, error } = await db.storage.from(bucket).download(path);
+  if (error || !file) throw new HttpError(404, "The file could not be read from storage.");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (bytes.length > 20 * 1024 * 1024) throw new HttpError(413, "This file is larger than 20 MB.");
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  const data = btoa(bin);
+  const type = (file.type || "").toLowerCase();
+  const ext = path.split(".").pop()?.toLowerCase() || "";
+  if (type === "application/pdf" || ext === "pdf") return { type: "document", source: { type: "base64", media_type: "application/pdf", data } };
+  const img = type.startsWith("image/") ? type : ({ jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" } as Record<string, string>)[ext];
+  if (!img) throw new HttpError(415, "Upload a PDF or a photo (JPG, PNG or WebP).");
+  return { type: "image", source: { type: "base64", media_type: img as "image/jpeg", data } };
+}
+const ownPath = (prod: string, path?: string) => { if (path && !path.startsWith(`${prod}/`)) throw new HttpError(400, "That file doesn't belong to this production."); return path; };
+
+const CATEGORY_GUIDE = "A Pre-production & wrap, B Shooting crew, C Talent & usage, D Locations & permits, E Equipment, F Art & wardrobe, G Transport & catering, H Post-production, I Insurance & contingency, J Production fee";
+
+/* past budget → rate card lines. Source: a file in the media bucket, or pasted text. */
+async function ratecard(db: SupabaseClient, p: { production_id: string; file_path?: string; bucket?: string; text?: string }) {
+  const { data: allowed } = await db.rpc("can_see_internal", { p_prod: p.production_id });
+  if (!allowed) throw new HttpError(403, "Only owners and producers can build a rate card.");
+  const content: Anthropic.Beta.BetaContentBlockParam[] = [];
+  if (p.file_path) content.push(await fileBlock(db, p.bucket === "scripts" ? "scripts" : "media", ownPath(p.production_id, p.file_path)!));
+  else if (p.text?.trim()) content.push({ type: "text", text: `<budget>\n${p.text.slice(0, 60000)}\n</budget>` });
+  else throw new HttpError(400, "Upload a past budget or paste it as text.");
+  content.push({ type: "text", text: "Extract the rate card from this budget." });
+  const schema = obj({
+    lines: arr(obj({
+      category: { type: "string", enum: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"] },
+      item: str, unit: { type: "string", enum: ["day", "flat", "head", "hour", "week", "item"] },
+      rate: num, who: str, notes: str,
+    })),
+    job: obj({ shoot_days: int, total: num, summary: str }),
+  });
+  return await askJSON({
+    system: `You turn a Saudi production house's real budget into a reusable rate card. For every line with a price, give the unit rate (not the line total: divide by quantity), the unit, who supplied it if named, and a short note (e.g. "package: includes all lighting and grip equipment", "client's own location, no fee", "fixed fee for the whole job"). Keep packages as one line; don't split them. Map each line to a commercial bid category: ${CATEGORY_GUIDE}. Rates in SAR, excluding VAT. Also summarise the job: shoot days, total and what kind of production it was.`,
+    content, schema, effort: "low", maxTokens: 16000,
+  });
+}
+
+/* receipt photo → vendor, VAT number, lines, total; suggest the budget line it belongs to */
+async function receipt(db: SupabaseClient, p: { production_id: string; file_path: string }) {
+  const block = await fileBlock(db, "media", ownPath(p.production_id, p.file_path)!);
+  const { data: lines } = await db.from("budget_lines").select("id, category, code, description").eq("production_id", p.production_id).order("sort");
+  const schema = obj({
+    vendor: str, vat_number: str, receipt_date: str, currency: str, total: num, vat: num,
+    lines: arr(obj({ description: str, amount: num })),
+    budget_line_id: str, match_reason: str, readable: { type: "boolean" },
+  });
+  return await askJSON({
+    system: "You read receipts and tax invoices photographed on a Saudi film set (Arabic or English). Extract the vendor, VAT registration number (15 digits, starts with 3), date as YYYY-MM-DD, each line and the totals in SAR. Then choose the budget line it most likely belongs to from the list, using its id, or \"\" if none fits. If the image isn't a readable receipt, set readable to false.",
+    content: [block, { type: "text", text: `Budget lines:\n${(lines ?? []).map((l) => `${l.id} | ${l.category} ${l.code ?? ""} ${l.description}`).join("\n") || "(no budget lines yet)"}` }],
+    schema, effort: "low", maxTokens: 8000,
+  });
+}
+
+/* draft a director's treatment from the script and a short brief */
+async function treatment(db: SupabaseClient, p: { production_id: string; brief?: string; sections?: string[] }) {
+  const { data: prod } = await db.from("productions").select("title, client_name, format, summary").eq("id", p.production_id).single();
+  const { data: scenes } = await db.from("active_scenes").select("num, heading, synopsis, body").eq("production_id", p.production_id).order("sort");
+  const wanted = (p.sections?.length ? p.sections : ["Vision", "Story", "Look & light", "Casting", "Locations", "Wardrobe & art", "Sound & music"]).slice(0, 10);
+  const schema = obj({ title: str, sections: arr(obj({ title: str, body: str })) });
+  return await askJSON({
+    system: "You are a commercial director writing a treatment for a client. Warm, visual, concise: two to four short paragraphs per section, concrete images rather than adjectives, no budget talk. Write in the language of the script (Arabic, English or both, following its lead).",
+    content: `Production: ${prod?.title ?? ""} for ${prod?.client_name ?? "the client"} · ${prod?.format ?? ""}\n${prod?.summary ? `Summary: ${prod.summary}\n` : ""}${p.brief ? `Director's notes: ${p.brief}\n` : ""}Write these sections: ${wanted.join(", ")}.\n\nScript:\n${(scenes ?? []).map((s) => `Sc ${s.num} ${s.heading}\n${s.body ?? s.synopsis ?? ""}`).join("\n\n").slice(0, 60000) || "(no script breakdown yet: work from the summary and notes)"}`,
+    schema, effort: "medium", maxTokens: 16000,
+  });
+}
+
+async function budget(db: SupabaseClient, p: { production_id: string; brief?: string; shoot_days?: number; client_location?: boolean; crew_level?: string }) {
   const { data: allowed } = await db.rpc("can_see_internal", { p_prod: p.production_id });
   if (!allowed) throw new HttpError(403, "Only owners and producers can draft budgets.");
-  const { data: prod } = await db.from("productions").select("title, format, client_name, shoot_start, shoot_end").eq("id", p.production_id).single();
+  const { data: prod } = await db.from("productions").select("org_id, title, format, client_name, shoot_start, shoot_end").eq("id", p.production_id).single();
+  const { data: rates } = await db.from("rate_cards").select("category, item, unit, rate, who, notes, source").eq("org_id", prod?.org_id ?? "").order("category");
   const { data: scenes } = await db.from("active_scenes").select("num, heading, day_night, location").eq("production_id", p.production_id).order("sort");
   const { data: els } = await db.from("elements").select("category, name, qty").eq("production_id", p.production_id).eq("status", "accepted");
   const { data: days } = await db.from("shoot_days").select("day_no").eq("production_id", p.production_id);
@@ -228,11 +301,36 @@ async function budget(db: SupabaseClient, p: { production_id: string; brief?: st
     })),
     assumptions: arr(str),
   });
+  const shootDays = p.shoot_days || days?.length || null;
+  const level = ["lean", "standard", "premium"].includes(p.crew_level ?? "") ? p.crew_level : "lean";
   return await askJSON({
-    system: `You are a Saudi commercial line producer drafting an internal cost budget in SAR (exclude VAT). Use commercial bid categories:
-A Pre-production & wrap, B Shooting crew, C Talent & usage, D Locations & permits, E Equipment, F Art & wardrobe, G Transport & catering, H Post-production, I Insurance & contingency, J Production fee.
-Use Riyadh market rates for 2026. Where the team list gives a day rate, use it. unit_cost is internal cost per unit; markup_pct is the markup applied for the client price (typically 15–25%, 0 for the production fee line which is already a client-facing figure). Keep lines specific (one role or item per line), realistic and complete for the breakdown given. List your key assumptions.`,
-    content: `Production: ${prod?.title} · ${prod?.format ?? ""} · client ${prod?.client_name ?? ""} · shoot ${prod?.shoot_start ?? "TBC"} to ${prod?.shoot_end ?? "TBC"}\nShoot days: ${days?.length || "TBC"}\n${p.brief ? `Producer notes: ${p.brief}\n` : ""}\nScenes:\n${(scenes ?? []).map((s) => `Sc ${s.num} ${s.heading} (${s.day_night}, ${s.location})`).join("\n")}\n\nConfirmed elements:\n${(els ?? []).map((e) => `${e.category}: ${e.name}${e.qty > 1 ? ` ×${e.qty}` : ""}`).join("\n")}\n\nTeam on the job:\n${(people ?? []).map((x) => `${x.role} (${x.dept ?? x.kind})${x.day_rate ? ` SAR ${x.day_rate}/day` : ""}${x.days ? ` × ${x.days} days` : ""}`).join("\n") || "not entered yet"}`,
+    system: `You are the line producer of a Saudi production house drafting the INTERNAL cost of a job in SAR (exclude VAT). Budget the way Riyadh houses actually do, not like an international agency bid:
+- Use the house RATE CARD first, at its rates and in its structure. Only estimate items the rate card doesn't cover, and say so in notes ("estimate").
+- Buy packages where the house does: e.g. gaffer + key grip + camera/light assistants + all lighting, grip and camera equipment as ONE line. Don't itemise equipment separately when a package covers it.
+- Key creatives (producer, director, DoP, AD) are usually one fixed fee for the whole job (unit "flat"), not day rates.
+- Cast is often one package through a cast manager.
+- Budget exactly the shoot days given. Don't add days, locations, departments or crew the script doesn't need.
+- If the client provides the location, locations cost 0 (keep one line "Client location" at 0).
+- Crew level "${level}": lean = the smallest crew that can deliver (most corporate and digital work), standard = a normal TVC crew, premium = a large broadcast TVC.
+- No padding: no separate insurance, contingency or catering lines unless the rate card or the job clearly needs them. Petty cash for production and props is one line.
+- Scale check: a lean one-day corporate or digital shoot in Riyadh typically costs SAR 80,000–150,000 internally; a standard two- to three-day TVC SAR 250,000–600,000. If you land far outside the band for this job, re-check.
+Categories: ${CATEGORY_GUIDE}. unit_cost is the internal cost per unit. markup_pct is the house markup for the client price (default 20%; 0 for J Production fee). Put each assumption in "assumptions", starting with the shoot days and crew level you used.`,
+    content: `Production: ${prod?.title} · ${prod?.format ?? ""} · client ${prod?.client_name ?? ""} · shoot ${prod?.shoot_start ?? "TBC"} to ${prod?.shoot_end ?? "TBC"}
+Shoot days: ${shootDays ?? "not set: assume 1 unless the script clearly needs more, and say so"}
+Location: ${p.client_location ? "provided by the client (no location fee)" : "to be sourced"}
+Crew level: ${level}
+${p.brief ? `Producer notes: ${p.brief}\n` : ""}
+House rate card (${rates?.length ?? 0} lines):
+${(rates ?? []).map((r) => `${r.category} | ${r.item} | SAR ${r.rate} per ${r.unit}${r.who ? ` | ${r.who}` : ""}${r.notes ? ` | ${r.notes}` : ""}`).join("\n") || "(empty: use lean Riyadh rates and say every line is an estimate)"}
+
+Scenes:
+${(scenes ?? []).map((s) => `Sc ${s.num} ${s.heading} (${s.day_night}, ${s.location})`).join("\n") || "(no breakdown yet)"}
+
+Confirmed elements:
+${(els ?? []).map((e) => `${e.category}: ${e.name}${e.qty > 1 ? ` ×${e.qty}` : ""}`).join("\n") || "(none yet)"}
+
+Team on the job:
+${(people ?? []).map((x) => `${x.role} (${x.dept ?? x.kind})${x.day_rate ? ` SAR ${x.day_rate}/day` : ""}${x.days ? ` × ${x.days} days` : ""}`).join("\n") || "not entered yet"}`,
     schema,
     effort: "medium",
     maxTokens: 24000,
@@ -265,6 +363,9 @@ Deno.serve(async (req) => {
       case "shots": return json(await shots(db, body));
       case "schedule": return json(await schedule(db, body));
       case "budget": return json(await budget(db, body));
+      case "ratecard": return json(await ratecard(db, body));
+      case "receipt": return json(await receipt(db, body));
+      case "treatment": return json(await treatment(db, body));
       default: throw new HttpError(400, `Unknown action: ${body.action}`);
     }
   } catch (err) {

@@ -13,25 +13,25 @@
   const PHASES = [
     /* each phase is an ordered sequence of steps, grouped into activities (tabs keep the same order) */
     { id: 'pre', label: 'Pre-production', icon: 'pencil-ruler', color: '#ACD062',
-      tabs: [['script', 'Script', 'file-text', 1], ['treatment', 'Treatment & Lookbook', 'gallery-vertical-end'],
+      tabs: [['script', 'Script', 'file-text', 1], ['treatment', 'Treatment & Lookbook', 'gallery-vertical-end', 1],
              ['breakdown', 'AI Breakdown', 'scan-text', 1],
-             ['storyboard', 'Storyboard', 'layout-grid'], ['shotlist', 'Shot List', 'list-video', 1],
-             ['stripboard', 'Stripboard', 'rows-3', 1], ['calendar', 'Calendar', 'calendar-days'],
+             ['storyboard', 'Storyboard', 'layout-grid', 1], ['shotlist', 'Shot List', 'list-video', 1],
+             ['stripboard', 'Stripboard', 'rows-3', 1], ['calendar', 'Calendar', 'calendar-days', 1],
              ['budget', 'Budget & Bid', 'calculator', 1]],
       groups: [['Story', ['script', 'treatment']], ['Breakdown', ['breakdown']], ['Visualize', ['storyboard', 'shotlist']],
                ['Schedule', ['stripboard', 'calendar']], ['Budget', ['budget']]] },
     { id: 'prod', label: 'Production', icon: 'clapperboard', color: '#FAB771',
-      tabs: [['crew', 'Crew & Talent', 'users', 1], ['locations', 'Locations', 'map-pin'], ['callsheets', 'Call Sheets', 'clipboard-list', 1], ['shootday', 'Shoot Day', 'radio']],
+      tabs: [['crew', 'Crew & Talent', 'users', 1], ['locations', 'Locations', 'map-pin', 1], ['callsheets', 'Call Sheets', 'clipboard-list', 1], ['shootday', 'Shoot Day', 'radio', 1]],
       groups: [['Team & places', ['crew', 'locations']], ['Shoot', ['callsheets', 'shootday']]] },
     { id: 'post', label: 'Post-production', icon: 'film', color: '#7FB2A6',
       tabs: [['dailies', 'Dailies & Media', 'hard-drive'], ['edit', 'Edit & Versions', 'scissors'], ['review', 'Review & Approvals', 'circle-check-big'],
              ['finishing', 'Finishing', 'wand-sparkles'], ['deliverables', 'Deliverables', 'package-check'], ['wrap', 'Wrap Report', 'file-bar-chart']],
       groups: [['Edit', ['dailies', 'edit']], ['Approve', ['review']], ['Finish & deliver', ['finishing', 'deliverables']], ['Close', ['wrap']]] },
   ];
-  const CLIENT_MODULES = ['overview', 'script', 'budget'];
+  const CLIENT_MODULES = ['overview', 'treatment', 'script', 'storyboard', 'calendar', 'budget', 'docs'];
   const phaseOf = (prod) => ({ 'Development': 'pre', 'Bidding': 'pre', 'Pre-production': 'pre', 'Shooting': 'prod', 'Post-production': 'post', 'Delivered': 'post' }[prod.status] || 'pre');
   const phaseForModule = (mod) => PHASES.find((ph) => ph.tabs.some(([id]) => id === mod));
-  const isLive = (mod) => mod === 'overview' || PHASES.some((ph) => ph.tabs.some(([id, , , live]) => id === mod && live));
+  const isLive = (mod) => mod === 'overview' || mod === 'docs' || PHASES.some((ph) => ph.tabs.some(([id, , , live]) => id === mod && live));
   MPH.PHASES = PHASES;
   MPH.phaseOf = phaseOf;
 
@@ -480,7 +480,8 @@
     if (r.section === 'p' && prod) {
       const ph = phaseForModule(r.view);
       const tab = ph && ph.tabs.find(([id]) => id === r.view);
-      crumbs += `${sep}<a href="#productions">${t('Productions')}</a>${sep}<a href="#p.${prod.id}.overview">${esc(prod.title)}</a>${sep}<span class="here">${t(tab ? tab[1] : 'Overview')}</span>`;
+      const here = tab ? tab[1] : r.view === 'docs' ? 'Documents' : 'Overview';
+      crumbs += `${sep}<a href="#productions">${t('Productions')}</a>${sep}<a href="#p.${prod.id}.overview">${esc(prod.title)}</a>${sep}<span class="here">${t(here)}</span>`;
     } else {
       const label = { home: 'Home', productions: 'Productions', team: 'Team', account: 'Account' }[r.section] || '';
       crumbs += label ? `${sep}<span class="here">${t(label)}</span>` : '';
@@ -538,7 +539,7 @@
             <span class="small muted">${esc(prod.client_name || 'No client yet')}${prod.agency ? ' · via ' + esc(prod.agency) : ''}${prod.format ? ' · ' + esc(prod.format) : ''}${prod.code ? ` · <span class="mono">${esc(prod.code)}</span>` : ''}</span>
           </div>
           ${prod.shoot_start ? `<div class="row small muted nowrap">${ui.icon('calendar')}Shoot ${MPH.date(prod.shoot_start)}${prod.shoot_end && prod.shoot_end !== prod.shoot_start ? '–' + MPH.date(prod.shoot_end) : ''}</div>` : ''}
-          ${client ? '' : `<span class="ph-soon" tabindex="0" role="button" aria-disabled="true" data-tip="${esc(t('Coming soon'))}">${ui.icon('folder-open')}${t('Documents')}</span>`}
+          <a class="ph-docs ${r.view === 'docs' ? 'active' : ''}" href="#p.${prod.id}.docs">${ui.icon('folder-open')}${t('Documents')}</a>
         </div>
         ${stepper}${steps}
       </div>
