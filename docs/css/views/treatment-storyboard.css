@@ -382,3 +382,7 @@ html.tr-show-open, html.tr-show-open body { overflow: hidden; }
   .sbd-grip, .sbd-hint { opacity: 1; }
   .sbd-share { width: 100%; }
 }
+
+/* AI illustration inside a frame (no uploaded image) */
+.sbd-sketch { position: absolute; inset: 0; display: block; }
+.sbd-sketch svg.sk { width: 100%; height: 100%; display: block; }

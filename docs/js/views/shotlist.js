@@ -88,7 +88,62 @@
     return shotCount ? `<button class="btn btn-xs btn-outline" data-ai-scene>${ui.icon('sparkles')}Suggest shots</button>` : '';
   }
 
-  function cols(ctx) { return ctx.canEdit ? 12 : 10; }
+  function cols(ctx) { return ctx.canEdit ? 13 : 11; }
+
+  /* AI illustration of the shot, drawn in the pitch style (MPH.sketch). Click to see it large or redraw it. */
+  function picCell(ctx, s) {
+    const { ui, esc } = ctx;
+    const inner = s.illustration ? MPH.sketch(s.illustration) : ctx.canEdit ? `${ui.icon('sparkles')}<span>Draw</span>` : '';
+    return `<td class="sl-c-pic"><button type="button" class="sl-pic ${s.illustration ? '' : 'is-empty'}" data-pic="${s.id}" aria-label="Picture for shot ${esc(s.code || '')}">${inner}</button></td>`;
+  }
+  function paintPic(ctx, s) {
+    const el = document.querySelector(`#view [data-pic="${s.id}"]`);
+    if (!el) return;
+    el.classList.remove('is-drawing');
+    el.classList.toggle('is-empty', !s.illustration);
+    el.innerHTML = s.illustration ? MPH.sketch(s.illustration) : ctx.canEdit ? `${ctx.ui.icon('sparkles')}<span>Draw</span>` : '';
+    MPH.icons();
+  }
+  /* ask the AI to illustrate these shots; pictures appear as each batch comes back */
+  async function illustrateShots(ctx, d, ids, btn) {
+    if (!ids.length) return;
+    ids.forEach((id) => { const el = document.querySelector(`#view [data-pic="${id}"]`); if (el) { el.classList.add('is-drawing'); el.innerHTML = ctx.ui.spinner(); } });
+    const label = btn && btn.innerHTML;
+    if (btn) { btn.disabled = true; btn.innerHTML = `${ctx.ui.spinner()}Drawing 0 of ${ids.length}`; }
+    try {
+      await MPH.illus.shots(ctx, ids, (done, total, specs) => {
+        Object.entries(specs).forEach(([id, spec]) => { const s = d.shots.find((x) => x.id === id); if (s) { s.illustration = spec; paintPic(ctx, s); } });
+        if (btn) btn.innerHTML = `${ctx.ui.spinner()}Drawing ${done} of ${total}`;
+      });
+      ctx.toast(`Drew ${plural(ids.length, 'shot')}`, 'sparkles');
+    } catch (ex) { ctx.toastError(ex); }
+    finally {
+      ids.forEach((id) => { const s = d.shots.find((x) => x.id === id); if (s) paintPic(ctx, s); });
+      if (btn && btn.isConnected) { btn.disabled = false; btn.innerHTML = label; MPH.icons(); }
+      const missing = d.shots.filter((s) => !s.illustration).length;
+      const all = document.querySelector('#view [data-illus-all]');
+      if (all) { all.hidden = !missing; const n = all.querySelector('[data-illus-n]'); if (n) n.textContent = missing; }
+    }
+  }
+  function openPic(ctx, d, s) {
+    const { ui, esc } = ctx;
+    const el = ctx.modal(ctx.frame({
+      title: `Shot ${esc(s.code || '')}`,
+      sub: esc([s.size, s.angle, s.movement, s.lens].filter(Boolean).join(' · ')),
+      body: `<div class="sl-pic-big">${s.illustration ? MPH.sketch(s.illustration) : ui.empty('image', 'No picture yet', ctx.canEdit ? 'Let the AI draw it from the shot and its scene.' : '')}</div>
+        ${s.description ? `<p class="small" dir="auto">${esc(s.description)}</p>` : ''}`,
+      foot: `<button class="btn btn-ghost" data-close>Close</button>${ctx.canEdit ? `<button class="btn btn-primary" data-redraw>${ui.icon('sparkles')}${s.illustration ? 'Redraw with AI' : 'Draw with AI'}</button>` : ''}`,
+    }), { wide: true });
+    const b = el.querySelector('[data-redraw]');
+    if (b) b.addEventListener('click', async () => {
+      b.disabled = true; b.innerHTML = `${ui.spinner()}Drawing`;
+      try {
+        const specs = await MPH.illus.shots(ctx, [s.id]);
+        if (specs[s.id]) { s.illustration = specs[s.id]; paintPic(ctx, s); el.querySelector('.sl-pic-big').innerHTML = MPH.sketch(s.illustration); }
+      } catch (ex) { ctx.toastError(ex); }
+      b.disabled = false; b.innerHTML = `${ui.icon('sparkles')}Redraw with AI`; MPH.icons();
+    });
+  }
 
   function rowHtml(ctx, s, i, count) {
     const { ui, esc } = ctx;
@@ -98,6 +153,7 @@
       return `
         <tr class="sl-row ${s.done ? 'is-done' : ''}" data-shot="${s.id}" data-scene="${s.scene_id}">
           <td class="sl-check-c"><input type="checkbox" class="sl-check" ${s.done ? 'checked' : ''} disabled aria-label="Shot ${esc(code)} done"></td>
+          ${picCell(ctx, s)}
           <td class="sl-c-code"><span class="sl-code mono">${esc(code) || '<span class="faint">—</span>'}</span>${s.ai ? `<span class="sl-ai-dot" title="Suggested by AI">${ui.icon('sparkles')}</span>` : ''}</td>
           <td class="sl-c-size">${s.size ? `<span class="sl-size" title="${esc(SIZE_NAMES[s.size] || s.size)}">${esc(s.size)}</span>` : ''}</td>
           <td class="sl-c-angle small">${esc(s.angle || '')}</td>
@@ -118,6 +174,7 @@
       <tr class="sl-row ${s.done ? 'is-done' : ''}" data-shot="${s.id}" data-scene="${s.scene_id}">
         <td class="sl-grip-c"><span class="sl-grip" data-grip title="Drag to reorder">${ui.icon('grip-vertical')}</span></td>
         <td class="sl-check-c"><input type="checkbox" class="sl-check" data-done ${s.done ? 'checked' : ''} aria-label="Mark ${esc(label)} as done"></td>
+        ${picCell(ctx, s)}
         <td class="sl-c-code"><div class="sl-code-wrap"><input class="cell-input mono sl-code-in" data-f="code" value="${esc(code)}" maxlength="12" aria-label="Shot code">${s.ai ? `<span class="sl-ai-dot" title="Suggested by AI">${ui.icon('sparkles')}</span>` : ''}</div></td>
         <td class="sl-c-size"><select class="cell-input" data-f="size" aria-label="Shot size for ${esc(label)}" title="${esc(SIZE_NAMES[s.size] || 'Shot size')}">${opts(SIZES, s.size)}</select></td>
         <td class="sl-c-angle"><select class="cell-input" data-f="angle" aria-label="Camera angle for ${esc(label)}">${opts(ANGLES, s.angle)}</select></td>
@@ -219,6 +276,7 @@
       title: ctx.t('Shot List'),
       sub: `${plural(d.scenes.length, 'scene')}${ed ? ' · changes save as you go' : ''}`,
       actions: `
+        ${ed ? `<button class="btn btn-outline" data-illus-all ${d.shots.some((s) => !s.illustration) ? '' : 'hidden'}>${ui.icon('sparkles')}Draw <span data-illus-n>${d.shots.filter((s) => !s.illustration).length}</span> shots with AI</button>` : ''}
         <div class="seg" role="group" aria-label="Order">
           <button class="${mode === 'scene' ? 'on' : ''}" data-mode="scene" aria-pressed="${mode === 'scene'}">${ui.icon('clapperboard')}By scene</button>
           <button class="${mode === 'order' ? 'on' : ''}" data-mode="order" aria-pressed="${mode === 'order'}">${ui.icon('list-ordered')}Shooting order</button>
@@ -239,6 +297,7 @@
     const th = `<tr>
       ${ed ? '<th class="sl-grip-c"><span class="sl-sr">Reorder</span></th>' : ''}
       <th class="sl-check-c"><span class="sl-sr">Done</span></th>
+      <th class="sl-c-pic">Picture</th>
       <th class="sl-c-code">Shot</th><th class="sl-c-size">Size</th><th class="sl-c-angle">Angle</th><th class="sl-c-move">Movement</th>
       <th class="sl-c-lens">Lens</th><th class="sl-c-desc">Description</th><th class="sl-c-subject">Subject</th>
       <th class="sl-c-setup r">Setup</th><th class="sl-c-est r">Est. min</th>
@@ -353,7 +412,8 @@
           aiReady.delete(sc.id);
           ctx.closeOverlay();
           hooks.refreshScene(sc.id);
-          ctx.toast(`Added ${plural(ins.length, 'shot')} to Sc. ${sc.num}`, 'sparkles');
+          ctx.toast(`Added ${plural(ins.length, 'shot')} to Sc. ${sc.num}. Drawing them now…`, 'sparkles');
+          illustrateShots(ctx, d, ins.map((s) => s.id)); // pictures fill in as they arrive
         } catch (ex) {
           btn.disabled = false; btn.innerHTML = `${ui.icon('plus')}Try again`; MPH.icons();
           ctx.toastError(ex);
@@ -568,7 +628,16 @@
         const t = e.target;
         const m = t.closest('[data-mode]');
         if (m) { if (ctx.state.slMode !== m.dataset.mode) { ctx.state.slMode = m.dataset.mode; repaint(); } return; }
+        const pic = t.closest('[data-pic]');
+        if (pic) {
+          const s = d.shots.find((x) => x.id === pic.dataset.pic);
+          if (!s || pic.classList.contains('is-drawing')) return;
+          if (!s.illustration && ctx.canEdit) illustrateShots(ctx, d, [s.id]); else openPic(ctx, d, s);
+          return;
+        }
         if (!ctx.canEdit) return;
+        const all = t.closest('[data-illus-all]');
+        if (all) { illustrateShots(ctx, d, d.shots.filter((s) => !s.illustration).map((s) => s.id), all); return; }
         const group = t.closest('tbody.sl-group');
         const sceneId = group && group.dataset.scene;
         let b;

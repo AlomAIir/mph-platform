@@ -63,7 +63,7 @@ MPH.view('overview', {
 
     const hero = `
       <section class="ov-hero">
-        <div class="ov-hero-art">${art.set()}</div>
+        <div class="ov-hero-art">${p.cover ? MPH.sketch(p.cover, { wide: true }) : art.set()}</div>
         <div class="ov-hero-shade"></div>
         <div class="ov-hero-body">
           <span class="eyebrow ov-eyebrow">${esc(p.client_name || 'No client yet')}${p.agency ? ' · ' + esc(p.agency) : ''}</span>
@@ -76,7 +76,9 @@ MPH.view('overview', {
             ${p.code ? `<span class="ov-chip mono">${esc(p.code)}</span>` : ''}
           </div>
         </div>
-        ${ctx.canSeeInternal && !ctx.isClient ? `<button class="btn btn-sm ov-edit" data-edit>${ui.icon('pencil')}Edit details</button>` : ''}
+        ${ctx.canSeeInternal && !ctx.isClient ? `<div class="ov-edit row">
+          <button class="btn btn-sm" data-cover>${ui.icon('sparkles')}${p.cover ? 'New header image' : 'Create header image'}</button>
+          <button class="btn btn-sm" data-edit>${ui.icon('pencil')}Edit details</button></div>` : ''}
       </section>`;
 
     /* ---------------- client view: hero + two big cards */
@@ -191,6 +193,16 @@ MPH.view('overview', {
   mount(root, ctx) {
     const edit = root.querySelector('[data-edit]');
     if (edit) edit.addEventListener('click', () => MPH.openProductionForm(ctx, ctx.production));
+    const cov = root.querySelector('[data-cover]');
+    if (cov) cov.addEventListener('click', async () => {
+      cov.disabled = true; cov.innerHTML = `${ctx.ui.spinner()}Drawing…`;
+      root.querySelector('.ov-hero').classList.add('is-drawing');
+      try {
+        const spec = await MPH.illus.cover(ctx, ctx.production.id);
+        if (spec) { ctx.production.cover = spec; ctx.toast('New header image ready', 'sparkles'); }
+        ctx.refreshAll();
+      } catch (ex) { ctx.toastError(ex); cov.disabled = false; cov.innerHTML = `${ctx.ui.icon('sparkles')}Try again`; MPH.icons(); root.querySelector('.ov-hero').classList.remove('is-drawing'); }
+    });
     // spotlight that follows the pointer on step cards
     root.querySelectorAll('.ov-step').forEach((el) => el.addEventListener('pointermove', (e) => {
       const r = el.getBoundingClientRect();

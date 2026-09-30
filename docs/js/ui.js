@@ -53,7 +53,10 @@
     const h = MPH.hue(prod.id || prod.title);
     return `background:linear-gradient(135deg, hsl(${h} 35% 24%), hsl(${(h + 30) % 360} 45% 42%));`;
   };
-  UI.prodThumb = (prod, size = 38) =>
+  UI.prodThumb = (prod, size = 38) => prod.cover && MPH.sketch
+    ? `<span class="prod-thumb" style="width:${size}px;height:${size}px;display:block;overflow:hidden;flex:none">${MPH.sketch(prod.cover, { wide: true })}</span>`
+    : UI.prodThumbPlain(prod, size);
+  UI.prodThumbPlain = (prod, size = 38) =>
     `<span class="prod-thumb" style="${UI.coverStyle(prod)};width:${size}px;height:${size}px;display:grid;place-items:center;color:rgba(255,255,255,.85);font:700 ${Math.round(size * 0.36)}px/1 var(--font-display)">${esc(UI.initials(prod.title))}</span>`;
 
   UI.stat = (value, label, extra = '') => `<div class="stat"><span class="v">${value}</span><span class="l">${esc(label)}</span>${extra}</div>`;

@@ -17,7 +17,11 @@
 .ov-chip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--text);
   background: rgba(245, 244, 239, .08); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: inset 0 0 0 1px rgba(245, 244, 239, .08); }
 .ov-chip svg.lucide { width: 14px; height: 14px; color: var(--accent); }
-.ov-edit { position: absolute; inset-block-start: 16px; inset-inline-end: 16px; background: rgba(8, 17, 16, .55); border-color: rgba(245, 244, 239, .12); backdrop-filter: blur(6px); }
+.ov-edit { position: absolute; inset-block-start: 16px; inset-inline-end: 16px; gap: 8px; }
+.ov-edit .btn { background: rgba(8, 17, 16, .55); border-color: rgba(245, 244, 239, .12); backdrop-filter: blur(6px); }
+.ov-hero-art svg.sk { width: 100%; height: 100%; display: block; }
+.ov-hero.is-drawing .ov-hero-art { animation: ov-drawing 1.4s ease-in-out infinite; }
+@keyframes ov-drawing { 50% { opacity: .55; filter: saturate(.5); } }
 
 /* hero animation: breathing light beams, twinkling stars, a rolling film strip, a gently panning camera */
 .a-beam { animation: ov-beam 6s ease-in-out infinite; }

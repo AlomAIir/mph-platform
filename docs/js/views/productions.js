@@ -95,7 +95,9 @@ MPH.openProductionForm = (ctx, prod = null) => {
         row.created_by = ctx.session.user.id;
         row.code = `${(ctx.session.org.name.match(/\b\w/g) || ['P']).join('').slice(0, 3).toUpperCase()}-${String(new Date().getFullYear()).slice(2)}${String(count + 1).padStart(2, '0')}`;
         const created = ctx.api.must(await ctx.sb.from('productions').insert(row).select().single());
-        ctx.closeOverlay(); ctx.toast(`${created.title} created`);
+        ctx.closeOverlay(); ctx.toast(`${created.title} created. Drawing its header image…`, 'sparkles');
+        // the AI draws a header image from the title and description; it appears on the overview when ready
+        MPH.illus.cover(ctx, created.id).then(() => { if (location.hash.includes(created.id)) ctx.refreshAll(); }).catch(() => {});
         ctx.go(`p.${created.id}.script`);
       }
     } catch (ex) { err.hidden = false; err.innerHTML = ui.errorBox(ex.message); MPH.icons(); }

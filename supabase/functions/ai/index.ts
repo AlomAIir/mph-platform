@@ -264,6 +264,62 @@ async function receipt(db: SupabaseClient, p: { production_id: string; file_path
   });
 }
 
+/* ------------------------------------------------------------------ illustrations
+   The model writes a small scene spec per shot/frame; the app draws it (docs/js/sketch.js). */
+const SPEC = obj({
+  time: { type: "string", enum: ["dawn", "day", "golden", "dusk", "night", "interior"] },
+  setting: { type: "string", enum: ["desert", "city", "road", "coast", "heritage", "office", "hospital", "home", "studio", "camp", "park", "mall"] },
+  size: { type: "string", enum: ["EWS", "WS", "MWS", "MS", "MCU", "CU", "ECU", "Insert"] },
+  angle: { type: "string", enum: ["eye", "low", "high", "overhead"] },
+  motion: { type: "string", enum: ["static", "pan", "track", "push", "pull", "drone", "crane", "handheld"] },
+  light: { type: "string", enum: ["warm", "cool", "neutral"] },
+  subjects: arr(obj({ kind: { type: "string", enum: ["person", "child", "group", "car", "animal", "object"] }, x: num, facing: { type: "string", enum: ["left", "right"] } })),
+  props: arr(obj({ kind: { type: "string", enum: ["palm", "tree", "fire", "lamp", "tent", "table", "desk", "screen", "sofa", "bed", "telescope", "coffee", "sign", "building"] }, x: num })),
+});
+const SPEC_RULES = `Describe each picture as a scene spec for a flat, stylised storyboard drawing:
+- time: dawn / day / golden (golden hour) / dusk / night, or "interior" for indoor scenes lit artificially.
+- setting: the closest match (heritage = mud-brick old town like Diriyah or Al-Balad; home = majlis or living room; mall = shops or lobby).
+- size and angle: keep the shot's framing (EWS…ECU, Insert for objects); overhead for drone top-downs.
+- motion: the camera move (drone, track, pan, push, pull, crane, handheld, static).
+- subjects: at most 4, each placed across the frame with x from 0 (left) to 1 (right). Use "car" for vehicles, "group" for three or more people, "child" for children, "object" for a hero product or prop in an insert.
+- props: at most 4 set pieces that make the place readable, with x positions.
+- light: warm for sun, fire and tungsten; cool for night and screens.`;
+
+async function illustrate(db: SupabaseClient, p: { production_id: string; shot_ids?: string[]; frame_ids?: string[] }) {
+  const items: { id: string; text: string }[] = [];
+  const scenesById: Record<string, { heading: string; location: string; day_night: string; synopsis: string }> = {};
+  const { data: scenes } = await db.from("scenes").select("id, heading, location, day_night, synopsis").eq("production_id", p.production_id);
+  (scenes ?? []).forEach((s) => { scenesById[s.id] = s; });
+  const sceneText = (id?: string | null) => { const s = id ? scenesById[id] : null; return s ? `${s.heading ?? ""} · ${s.location ?? ""} · ${s.day_night ?? ""} · ${s.synopsis ?? ""}` : "scene unknown"; };
+  if (p.shot_ids?.length) {
+    const { data } = await db.from("shots").select("id, scene_id, code, size, angle, movement, lens, description, subject").eq("production_id", p.production_id).in("id", p.shot_ids.slice(0, 16));
+    (data ?? []).forEach((s) => items.push({ id: s.id, text: `Shot ${s.code ?? ""}: ${s.size ?? ""} ${s.angle ?? ""} ${s.movement ?? ""} ${s.lens ?? ""}. ${s.description ?? ""}${s.subject ? ` Subject: ${s.subject}.` : ""} Scene: ${sceneText(s.scene_id)}` }));
+  }
+  if (p.frame_ids?.length) {
+    const { data } = await db.from("storyboard_frames").select("id, scene_id, title, description, shot_size, movement").eq("production_id", p.production_id).in("id", p.frame_ids.slice(0, 16));
+    (data ?? []).forEach((f) => items.push({ id: f.id, text: `Frame ${f.title ?? ""}: ${f.shot_size ?? ""} ${f.movement ?? ""}. ${f.description ?? ""} Scene: ${sceneText(f.scene_id)}` }));
+  }
+  if (!items.length) throw new HttpError(400, "Nothing to illustrate.");
+  const schema = obj({ items: arr(obj({ id: { type: "string", enum: items.map((i) => i.id) }, spec: SPEC })) });
+  return await askJSON({
+    system: `You are a storyboard artist for commercials. ${SPEC_RULES}`,
+    content: `Illustrate each of these, returning one spec per id:\n\n${items.map((i) => `${i.id} | ${i.text}`).join("\n")}`,
+    schema, effort: "low", maxTokens: 12000,
+  });
+}
+
+async function cover(db: SupabaseClient, p: { production_id: string }) {
+  const { data: prod } = await db.from("productions").select("title, client_name, format, summary").eq("id", p.production_id).single();
+  if (!prod) throw new HttpError(404, "Production not found.");
+  const { data: scenes } = await db.from("active_scenes").select("heading, synopsis").eq("production_id", p.production_id).order("sort").limit(8);
+  return await askJSON({
+    system: `You design the header image for a production in a production-management app: one wide, cinematic key image that captures what the film is about. ${SPEC_RULES}
+Choose a WS or EWS at eye level for a banner. Place subjects towards the right (x 0.55–0.9) so the title can sit on the left.`,
+    content: `Production: ${prod.title}${prod.client_name ? ` for ${prod.client_name}` : ""}${prod.format ? ` · ${prod.format}` : ""}\n${prod.summary ? `Description: ${prod.summary}\n` : ""}${(scenes ?? []).length ? `Scenes:\n${scenes!.map((s) => `${s.heading}: ${s.synopsis ?? ""}`).join("\n")}` : ""}`,
+    schema: obj({ spec: SPEC }), effort: "low", maxTokens: 4000,
+  });
+}
+
 /* draft a director's treatment from the script and a short brief */
 async function treatment(db: SupabaseClient, p: { production_id: string; brief?: string; sections?: string[] }) {
   const { data: prod } = await db.from("productions").select("title, client_name, format, summary").eq("id", p.production_id).single();
@@ -366,6 +422,8 @@ Deno.serve(async (req) => {
       case "ratecard": return json(await ratecard(db, body));
       case "receipt": return json(await receipt(db, body));
       case "treatment": return json(await treatment(db, body));
+      case "illustrate": return json(await illustrate(db, body));
+      case "cover": return json(await cover(db, body));
       default: throw new HttpError(400, `Unknown action: ${body.action}`);
     }
   } catch (err) {

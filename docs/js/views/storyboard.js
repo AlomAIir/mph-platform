@@ -99,7 +99,9 @@
   /* ------------------------------------------------------------ pieces */
   function mediaHtml(d, f) {
     const url = f.image_path ? d.urls[f.image_path] : null;
-    return url ? `<img src="${esc(url)}" alt="${esc(f.title || 'Storyboard frame')}" loading="lazy" draggable="false">` : placeholder(f);
+    if (url) return `<img src="${esc(url)}" alt="${esc(f.title || 'Storyboard frame')}" loading="lazy" draggable="false">`;
+    // no uploaded image: the AI illustration when there is one, else the simple placeholder
+    return f.illustration ? `<span class="sbd-sketch">${MPH.sketch(f.illustration)}</span>` : placeholder(f);
   }
 
   function cardHtml(ctx, d, f, n, editable) {
@@ -195,6 +197,7 @@
           <button class="btn btn-sm ${todo.length ? 'btn-primary' : 'btn-outline'}" data-sbd="from-shots" ${todo.length ? '' : 'disabled title="Every shot on the shot list has a frame"'}>${ui.icon('list-video')}Create frames from the shot list${todo.length ? `<span class="sbd-count num">${todo.length}</span>` : ''}</button>
           <label class="btn btn-sm btn-outline">${ui.icon('image-up')}Upload frames<input type="file" accept="image/*" multiple data-sbd-file hidden></label>
           <button class="btn btn-sm btn-ghost" data-sbd="add">${ui.icon('plus')}Blank frame</button>
+          ${(() => { const n = d.frames.filter((f) => !f.image_path && !f.illustration).length; return n ? `<button class="btn btn-sm btn-outline" data-sbd="draw">${ui.icon('sparkles')}Draw ${plural(n, 'frame')} with AI</button>` : ''; })()}
         </div>` : ''}
         <span class="spacer"></span>
         <button class="sbd-switch" role="switch" aria-checked="${grouped(ctx)}" data-sbd="group"><span class="toggle ${grouped(ctx) ? 'on' : ''}" aria-hidden="true"></span>Group by scene</button>
@@ -278,7 +281,7 @@
         ctx.sb.from('storyboard_frames').select('*').eq('production_id', pid),
         ctx.sb.from('active_scenes').select('id, num, heading, location, sort').eq('production_id', pid),
         // shots are team-only: never queried in the client view
-        ctx.isClient ? Promise.resolve({ data: [], error: null }) : ctx.sb.from('shots').select('id, scene_id, code, size, movement, description, sort, created_at').eq('production_id', pid),
+        ctx.isClient ? Promise.resolve({ data: [], error: null }) : ctx.sb.from('shots').select('id, scene_id, code, size, movement, description, sort, created_at, illustration').eq('production_id', pid),
       ]);
       const frames = must(f).sort(frameOrder);
       const scenes = must(sc).sort(sceneOrder);
@@ -336,6 +339,7 @@
           const rows = todo.map((s) => ({
             production_id: pid, scene_id: s.scene_id, shot_id: s.id, title: s.code ? `Shot ${s.code}` : null,
             description: txt(s.description), shot_size: txt(s.size, 40), movement: txt(s.movement, 40), sort: sort++,
+            illustration: s.illustration || null, // the shot's AI drawing carries over to its frame
           }));
           try { await insertFrames(rows, (ins) => `Created ${plural(ins.length, 'frame')} from the shot list`); ctx.closeOverlay(); }
           catch (ex) { go.disabled = false; go.innerHTML = `${ui.icon('list-video')}Try again`; MPH.icons(); ctx.toastError(ex); }
@@ -563,6 +567,19 @@
         const act = b.dataset.sbd;
         if (act === 'group') { ctx.state.sbdGroup = !grouped(ctx); return repaint(); }
         if (act === 'present') return present(ctx, d);
+        if (act === 'draw') {
+          const ids = d.frames.filter((f) => !f.image_path && !f.illustration).map((f) => f.id);
+          if (!ids.length) return;
+          b.disabled = true; b.innerHTML = `${ui.spinner()}Drawing 0 of ${ids.length}`;
+          try {
+            await MPH.illus.frames(ctx, ids, (done, total, specs) => {
+              Object.entries(specs).forEach(([id, spec]) => { const f = d.frames.find((x) => x.id === id); if (f) f.illustration = spec; });
+              const live = root.querySelector('[data-sbd="draw"]'); if (live) live.innerHTML = `${ui.spinner()}Drawing ${done} of ${total}`;
+            });
+            ctx.toast(`Drew ${plural(ids.length, 'frame')}`, 'sparkles');
+          } catch (ex) { ctx.toastError(ex); }
+          return repaint();
+        }
         if (act === 'open') { const card = b.closest('[data-frame]'); if (card) openFrame(card.dataset.frame); return; }
         if (act === 'share') {
           if (!ctx.canSeeInternal || ctx.isClient) return;
