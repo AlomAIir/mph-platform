@@ -67,6 +67,13 @@ Copy: plain, specific, active voice. Buttons say exactly what happens. No lorem 
   - `ratecard` {file_path (media bucket), text?} → {lines:[{category, item, unit, rate, who, notes}], job:{shoot_days,total,summary}}
   - `receipt` {file_path (media, image or PDF)} → {vendor, vat_number, receipt_date, currency, total, vat, lines[], budget_line_id, match_reason, readable}
   - `budget` {brief?, shoot_days?, client_location?, crew_level: 'lean'|'standard'|'premium'} (now uses the workspace rate card)
+  - `illustrate` / `cover`: sketch specs for shots, storyboard frames and the production header (drawn by `MPH.sketch`, driven by `MPH.illus` in js/illustrate.js)
+  - `treatment_extract` {image_paths[≤8], first_page, total_pages} → {pages:[{page, board, caption, visual}], notes:[{section, text}], language}
+  - `treatment_merge` {notes[] | text, file_name} → {title, logline, language, sections:[{title, body}], scene_outline}
+  - `moodboard` {image_paths[≤8]} → {images:[{index, board, caption, duplicate_of}]}
+- Importing (js/importer.js): `MPH.importer.treatment(ctx, {onDone(row)})` turns a PDF deck, slide images or a .docx into a treatment version,
+  lookbook images on boards, palette swatches and optionally a script outline / summary / Documents entry, after a review step.
+  `MPH.importer.moods(ctx, files, {onDone})` sorts mood-board images onto boards. PDF pages are drawn with pdf.js in the browser.
 - Errors from `ctx.api.ai` carry `err.code` ('too_slow') and `err.status`.
 - Scenes: always read `active_scenes` (latest broken-down script version), never `scenes`, for anything except writes.
 - Workspace id for rate cards: `ctx.production.org_id`.

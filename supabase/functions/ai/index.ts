@@ -320,6 +320,74 @@ Choose a WS or EWS at eye level for a banner. Place subjects towards the right (
   });
 }
 
+/* ------------------------------------------------------------------ importing a treatment or a mood board
+   The browser renders PDF pages (or slide photos) to images in the media bucket and sends a few at a time. */
+const BOARDS = ["Mood", "Light", "Locations", "Casting", "Wardrobe", "Art", "Story", "Product", "Other", "Skip"];
+const imagePaths = (prod: string, paths?: string[]) => {
+  if (!paths?.length) throw new HttpError(400, "No images to read.");
+  return paths.slice(0, 8).map((p) => ownPath(prod, p)!);
+};
+
+/* read a group of treatment pages: what each page is, and the text it contributes to which section */
+async function treatment_extract(db: SupabaseClient, p: { production_id: string; image_paths: string[]; first_page: number; total_pages: number }) {
+  const paths = imagePaths(p.production_id, p.image_paths);
+  const content: Anthropic.Beta.BetaContentBlockParam[] = [];
+  for (let i = 0; i < paths.length; i++) {
+    content.push({ type: "text", text: `Page ${p.first_page + i} of ${p.total_pages}:` });
+    content.push(await fileBlock(db, "media", paths[i]));
+  }
+  content.push({ type: "text", text: "Read these treatment pages." });
+  const schema = obj({
+    pages: arr(obj({ page: int, board: { type: "string", enum: BOARDS }, caption: str, visual: { type: "boolean" } })),
+    notes: arr(obj({ section: str, text: str })),
+    language: { type: "string", enum: ["ar", "en", "ar+en"] },
+  });
+  return await askJSON({
+    system: `You are importing a director's treatment (a commercial or film pitch deck) into a production platform. For each page:
+- board: where the page belongs as a lookbook image: Mood (overall feel), Light (lighting/colour references), Locations, Casting, Wardrobe, Art (sets, props, graphics), Story (storyboard or scene pages), Product (the brand or product), Other, or Skip for pages with no visual value (blank, contact page, plain text slide).
+- caption: one short line describing the image itself, in English (e.g. "Warm backlight through a hospital corridor").
+- visual: true if the page is mainly imagery.
+notes: transcribe the substance of the text into treatment sections, in the language it is written in (keep Arabic as Arabic; fix reversed or broken Arabic glyph order as you read it). Use these section names where they fit: Vision, Story, Look & light, Casting, Locations, Wardrobe & art, Sound & music, Deliverables, Scene outline. Use another short name for anything else. Don't invent content that isn't on the pages.`,
+    content, schema, effort: "low", maxTokens: 12000,
+  });
+}
+
+/* merge the notes from all pages (or a Word document's text) into clean treatment sections */
+async function treatment_merge(db: SupabaseClient, p: { production_id: string; notes?: { section: string; text: string }[]; text?: string; file_name?: string }) {
+  const body = p.text?.trim()
+    ? `<document name="${p.file_name ?? "treatment"}">\n${p.text.slice(0, 80000)}\n</document>`
+    : (p.notes ?? []).map((n) => `## ${n.section}\n${n.text}`).join("\n\n").slice(0, 80000);
+  if (!body.trim()) throw new HttpError(400, "There is no text to import.");
+  const schema = obj({
+    title: str,
+    logline: str,
+    language: { type: "string", enum: ["ar", "en", "ar+en"] },
+    sections: arr(obj({ title: str, body: str })),
+    scene_outline: str,
+  });
+  return await askJSON({
+    system: `You turn a director's treatment into the platform's treatment format. Write the sections in this order when there is material for them: Vision, Story, Look & light, Casting, Locations, Wardrobe & art, Sound & music. Add other sections the source has (for example Deliverables) after those, keeping their substance. Merge duplicates, keep the director's voice and wording, keep the source language (Arabic stays Arabic), use short paragraphs, and never invent content. Skip sections with no material.
+title: the film or campaign title. logline: one sentence on what the film is, in the source language.
+scene_outline: if the treatment describes scenes, write them as a simple script outline (one block per scene: a slugline such as "INT. OFFICE – DAY", then what happens and any dialogue or voice-over), ready for a script breakdown. Otherwise "".`,
+    content: body, schema, effort: "low", maxTokens: 24000,
+  });
+}
+
+/* sort mood-board images onto boards with captions */
+async function moodboard(db: SupabaseClient, p: { production_id: string; image_paths: string[] }) {
+  const paths = imagePaths(p.production_id, p.image_paths);
+  const content: Anthropic.Beta.BetaContentBlockParam[] = [];
+  for (let i = 0; i < paths.length; i++) {
+    content.push({ type: "text", text: `Image ${i + 1}:` });
+    content.push(await fileBlock(db, "media", paths[i]));
+  }
+  const schema = obj({ images: arr(obj({ index: int, board: { type: "string", enum: BOARDS.filter((b) => b !== "Skip") }, caption: str, duplicate_of: int })) });
+  return await askJSON({
+    system: "You are a director's assistant sorting reference images for a commercial's lookbook. For each image (by its number) choose a board (Mood, Light, Locations, Casting, Wardrobe, Art, Story, Product, Other) and write one short, specific caption in English about what makes it useful as a reference (light, colour, composition, texture). duplicate_of: the number of an earlier image in this set that is nearly identical, or 0.",
+    content, schema, effort: "low", maxTokens: 6000,
+  });
+}
+
 /* draft a director's treatment from the script and a short brief */
 async function treatment(db: SupabaseClient, p: { production_id: string; brief?: string; sections?: string[] }) {
   const { data: prod } = await db.from("productions").select("title, client_name, format, summary").eq("id", p.production_id).single();
@@ -423,6 +491,9 @@ Deno.serve(async (req) => {
       case "receipt": return json(await receipt(db, body));
       case "treatment": return json(await treatment(db, body));
       case "illustrate": return json(await illustrate(db, body));
+      case "treatment_extract": return json(await treatment_extract(db, body));
+      case "treatment_merge": return json(await treatment_merge(db, body));
+      case "moodboard": return json(await moodboard(db, body));
       case "cover": return json(await cover(db, body));
       default: throw new HttpError(400, `Unknown action: ${body.action}`);
     }

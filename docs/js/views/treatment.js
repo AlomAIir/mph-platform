@@ -286,9 +286,10 @@
     let actions = '';
     if (!isLatest) actions = `<button class="btn btn-sm btn-outline" data-tr-ver="${latest.version}">${ui.icon('arrow-right')}Open the latest, v${esc(latest.version)}</button>`;
     else if (editor) {
-      if (cur.status === 'draft') actions = `<button class="btn btn-sm btn-ghost" data-tr="new-version" title="Copy v${esc(cur.version)} into a new draft">${ui.icon('copy-plus')}New version</button><button class="btn btn-sm btn-primary" data-tr="send">${ui.icon('send')}Send to client</button>`;
-      else if (cur.status === 'changes_requested') actions = `<button class="btn btn-sm btn-primary" data-tr="new-version">${ui.icon('file-pen-line')}Start v${esc(cur.version + 1)} from these notes</button>`;
-      else actions = `<button class="btn btn-sm btn-outline" data-tr="new-version">${ui.icon('copy-plus')}New version</button>`;
+      actions = `<button class="btn btn-sm btn-ghost" data-tr="import" title="Import a treatment deck as a new version">${ui.icon('file-up')}Import</button>`;
+      if (cur.status === 'draft') actions += `<button class="btn btn-sm btn-ghost" data-tr="new-version" title="Copy v${esc(cur.version)} into a new draft">${ui.icon('copy-plus')}New version</button><button class="btn btn-sm btn-primary" data-tr="send">${ui.icon('send')}Send to client</button>`;
+      else if (cur.status === 'changes_requested') actions += `<button class="btn btn-sm btn-primary" data-tr="new-version">${ui.icon('file-pen-line')}Start v${esc(cur.version + 1)} from these notes</button>`;
+      else actions += `<button class="btn btn-sm btn-outline" data-tr="new-version">${ui.icon('copy-plus')}New version</button>`;
     }
     return `
       <section class="tr-bar k-${esc(cur.status)}">
@@ -337,14 +338,24 @@
             ${aiBody}
           </div>
         </section>
-        <section class="tr-start-card tr-start-blank">
-          <div class="tr-start-art">${MPH.art.step('script')}</div>
-          <div class="stack">
-            <div class="stack tight"><span class="eyebrow">Write it yourself</span><h2 class="h2">Start blank</h2>
-              <p class="small muted">Seven sections ready to fill in: ${DEFAULT_SECTIONS.map(esc).join(', ')}. Rename, reorder or remove any of them.</p></div>
-            <div><button class="btn btn-outline" data-tr="start-blank" ${running ? 'disabled' : ''}>${ui.icon('file-plus')}Start a blank treatment</button></div>
-          </div>
-        </section>
+        <div class="tr-start-side">
+          <section class="tr-start-card tr-start-import">
+            <div class="tr-start-art">${MPH.art.step('storyboard')}</div>
+            <div class="stack">
+              <div class="stack tight">${ui.aiBadge('Bring your own')}<h2 class="h2">Import a treatment</h2>
+                <p class="small muted">Already have a deck? Upload the PDF, slide images or a Word file. The AI writes the text into sections and sorts the pages onto lookbook boards. You review it before anything is saved.</p></div>
+              <div><button class="btn btn-outline" data-tr="import" ${running ? 'disabled' : ''}>${ui.icon('file-up')}Import a treatment</button></div>
+            </div>
+          </section>
+          <section class="tr-start-card tr-start-blank">
+            <div class="tr-start-art">${MPH.art.step('script')}</div>
+            <div class="stack">
+              <div class="stack tight"><span class="eyebrow">Write it yourself</span><h2 class="h2">Start blank</h2>
+                <p class="small muted">Seven sections ready to fill in: ${DEFAULT_SECTIONS.map(esc).join(', ')}. Rename, reorder or remove any of them.</p></div>
+              <div><button class="btn btn-outline" data-tr="start-blank" ${running ? 'disabled' : ''}>${ui.icon('file-plus')}Start a blank treatment</button></div>
+            </div>
+          </section>
+        </div>
       </div>`;
   }
 
@@ -396,6 +407,7 @@
           <div class="seg" role="group" aria-label="Columns">${[2, 3, 4].map((c) => `<button class="${cols === c ? 'on' : ''}" data-tr-cols="${c}" aria-pressed="${cols === c}" title="${c} columns">${ui.icon(`columns-${c}`)}${c}</button>`).join('')}</div>
           ${editable ? `<span class="sep"></span>
             <label class="btn btn-sm btn-primary tr-file">${ui.icon('image-plus')}Add images<input type="file" accept="image/*" multiple data-tr-file hidden></label>
+            <label class="btn btn-sm btn-outline tr-file" title="Upload a mood board; the AI sorts each image onto a board with a caption">${ui.icon('sparkles')}Import mood board<input type="file" accept="image/*,.pdf,application/pdf" multiple data-tr-moods hidden></label>
             <button class="btn btn-sm btn-outline" data-tr="add-note">${ui.icon('sticky-note')}Note</button>
             <button class="btn btn-sm btn-outline" data-tr="add-color">${ui.icon('palette')}Colour</button>` : ''}
         </div>
@@ -870,6 +882,10 @@
         }
         if (!(b = t.closest('[data-tr]')) || b.disabled) return;
         const act = b.dataset.tr;
+        if (act === 'import') {
+          await saver.flush();
+          return MPH.importer.treatment(ctx, { onDone: (row) => { if (row) { S.ver[pid] = row.version; ctx.state.trTab = 'doc'; } else ctx.state.trTab = 'look'; ctx.reload(); } });
+        }
         if (act === 'present') { await saver.flush(); return present(ctx, d, tabOf(ctx) === 'look' ? 'look' : 0); }
         if (act === 'approve' || act === 'changes') return openDecide(act === 'approve');
         if (act === 'item-open') {
@@ -985,7 +1001,10 @@
       });
 
       /* ---------- files: picker, drop on the board */
-      root.addEventListener('change', (e) => { if (e.target.matches('[data-tr-file]')) { const files = [...e.target.files]; e.target.value = ''; uploadFiles(files); } });
+      root.addEventListener('change', (e) => {
+        if (e.target.matches('[data-tr-file]')) { const files = [...e.target.files]; e.target.value = ''; uploadFiles(files); }
+        if (e.target.matches('[data-tr-moods]')) { const files = [...e.target.files]; e.target.value = ''; MPH.importer.moods(ctx, files, { onDone: () => { ctx.state.trTab = 'look'; ctx.reload(); } }); }
+      });
       let drag = null;
       const clearMarks = () => root.querySelectorAll('.tr-before, .tr-after').forEach((x) => x.classList.remove('tr-before', 'tr-after'));
       const isFiles = (e) => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
