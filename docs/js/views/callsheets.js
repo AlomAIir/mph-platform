@@ -507,11 +507,19 @@
       const pid = ctx.production.id;
       const { must } = ctx.api;
       const sb = ctx.sb;
-      const [days, sheets] = await Promise.all([
+      // one round trip for everything the list and the editor need (responses ride along with their call sheets)
+      const [days, sheets, scenes, cast, people] = await Promise.all([
         sb.from('shoot_days').select('id, day_no, date, location, crew_call, wrap, notes').eq('production_id', pid).order('day_no'),
-        sb.from('call_sheets').select('id, shoot_day_id, version, status, share_token, content, notes, published_at, created_at').eq('production_id', pid).order('version', { ascending: false }),
+        sb.from('call_sheets').select('id, shoot_day_id, version, status, share_token, content, notes, published_at, created_at, call_sheet_responses(id, call_sheet_id, person_id, name, status, responded_at)').eq('production_id', pid).order('version', { ascending: false }),
+        sb.from('active_scenes').select('id, num, heading, int_ext, day_night, location, synopsis, pages_eighths, est_minutes, sort, shoot_day_id, day_sort').eq('production_id', pid),
+        sb.from('elements').select('scene_id, name').eq('production_id', pid).eq('category', 'cast'),
+        // deliberately no day_rate: nothing about money is needed (or loaded) here
+        sb.from('people').select('id, name, role, dept, kind, phone, default_call, status').eq('production_id', pid).order('name'),
       ]);
       const d = { days: must(days) || [], sheets: must(sheets) || [] };
+      const responses = [];
+      d.sheets.forEach((s) => { responses.push(...(s.call_sheet_responses || [])); delete s.call_sheet_responses; });
+      responses.sort((a, b) => String(a.responded_at || '').localeCompare(String(b.responded_at || '')));
 
       // new.<shootDayId>: open the day's working draft, creating it if needed (carries edits from the latest version)
       if (ctx.params[0] === 'new') {
@@ -530,14 +538,7 @@
       }
 
       const sheetId = ctx.params[0];
-      const [scenes, cast, people, responses] = await Promise.all([
-        sb.from('active_scenes').select('id, num, heading, int_ext, day_night, location, synopsis, pages_eighths, est_minutes, sort, shoot_day_id, day_sort').eq('production_id', pid),
-        sb.from('elements').select('scene_id, name').eq('production_id', pid).eq('category', 'cast'),
-        // deliberately no day_rate: nothing about money is needed (or loaded) here
-        sb.from('people').select('id, name, role, dept, kind, phone, default_call, status').eq('production_id', pid).order('name'),
-        d.sheets.length ? sb.from('call_sheet_responses').select('id, call_sheet_id, person_id, name, status, responded_at').in('call_sheet_id', d.sheets.map((s) => s.id)).order('responded_at') : Promise.resolve({ data: [] }),
-      ]);
-      Object.assign(d, { scenes: must(scenes) || [], cast: must(cast) || [], people: must(people) || [], responses: must(responses) || [] });
+      Object.assign(d, { scenes: must(scenes) || [], cast: must(cast) || [], people: must(people) || [], responses });
       if (sheetId) {
         d.sheet = d.sheets.find((s) => s.id === sheetId) || null;
         if (d.sheet) d.edits = clone((d.sheet.content && d.sheet.content.edits) || {});

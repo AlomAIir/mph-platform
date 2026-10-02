@@ -63,7 +63,31 @@
     setTimeout(() => el.remove(), kind === 'error' ? 6000 : 3200);
   };
   MPH.toastError = (err) => MPH.toast(err?.message || String(err), 'triangle-alert', 'error');
-  const icons = () => { if (window.lucide) window.lucide.createIcons({ attrs: { 'stroke-width': 1.8 } }); };
+  /* swap <i data-lucide> placeholders for SVGs. Only unconverted placeholders are touched (lucide.createIcons
+     re-draws every icon on the page on each call), and each icon is built once and cloned after that. */
+  const iconTpl = new Map();
+  const pascal = (n) => n.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());
+  const icons = (scope = document) => {
+    const L = window.lucide;
+    if (!L) return;
+    scope.querySelectorAll('i[data-lucide]').forEach((el) => {
+      const name = el.getAttribute('data-lucide');
+      let tpl = iconTpl.get(name);
+      if (tpl === undefined) {
+        const node = L.icons[pascal(name)];
+        tpl = node ? L.createElement(node) : null;
+        if (tpl) { tpl.setAttribute('stroke-width', '1.8'); tpl.setAttribute('data-lucide', name); tpl.classList.add('lucide', `lucide-${name}`); }
+        iconTpl.set(name, tpl);
+      }
+      if (!tpl) return;
+      const svg = tpl.cloneNode(true);
+      for (const a of el.attributes) {
+        if (a.name === 'class') a.value.split(/\s+/).filter(Boolean).forEach((c) => svg.classList.add(c));
+        else if (a.name !== 'data-lucide') svg.setAttribute(a.name, a.value);
+      }
+      el.replaceWith(svg);
+    });
+  };
   MPH.icons = icons;
 
   /* ------------------------------------------------------------ routing */
@@ -78,11 +102,27 @@
 
   /* production cache for the header (refreshed on every production route) */
   let prodCache = null;
+  let prodFresh = false; // set by refreshAll: the next render re-reads the production instead of using the cache
   async function loadProduction(id) {
     const { data, error } = await MPH.sb.from('productions').select('*').eq('id', id).maybeSingle();
     if (error) throw new Error(error.message);
     return data;
   }
+
+  /* Each screen's data is kept for a while so moving between tabs is instant: a revisited screen draws from the
+     copy at once, re-reads in the background, and redraws only if something changed and you haven't started
+     using the screen yet. ctx.reload() (after your own edits) always reads fresh. */
+  const viewCache = new Map(); // key -> { data, json, at }
+  const VIEW_TTL = 10 * 60 * 1000;
+  const snapshot = (d) => { try { return JSON.stringify(d); } catch (e) { return null; } };
+  const cacheKey = (r, prod, clientish) => `${r.view}|${prod ? prod.id : ''}|${r.params.join('.')}|${clientish ? 'client' : 'team'}|${MPH.session ? MPH.session.org?.id : ''}`;
+  const cacheable = (r, data) => !r.params.some((p) => p === 'new' || p === 'run') && !(data && data.redirect);
+  const remember = (key, data) => {
+    viewCache.delete(key);
+    viewCache.set(key, { data, json: snapshot(data), at: Date.now() });
+    while (viewCache.size > 30) viewCache.delete(viewCache.keys().next().value);
+  };
+  MPH.clearCache = () => { viewCache.clear(); prodCache = null; };
 
   /* ------------------------------------------------------------ auth screens
      Split layout: an animated picture of the product at work (stripboard strips drifting past, the AI
@@ -590,8 +630,21 @@
     // production context
     let prod = null, access = api.accessFor(null);
     if (r.section === 'p') {
-      try { prod = await loadProduction(r.productionId); } catch (ex) { prod = null; }
-      if (seq !== renderSeq) return;
+      const cached = !prodFresh && prodCache && prodCache.id === r.productionId ? prodCache : null;
+      prodFresh = false;
+      if (cached) {
+        prod = cached;
+        // re-read in the background; redraw only if the production itself changed (title, dates, cover…)
+        const before = snapshot(cached);
+        loadProduction(cached.id).then((fresh) => {
+          if (seq !== renderSeq || prodCache !== cached) return;
+          if (!fresh) { prodCache = null; render(); return; }
+          if (snapshot(fresh) !== before) { prodCache = fresh; render(); }
+        }).catch(() => {});
+      } else {
+        try { prod = await loadProduction(r.productionId); } catch (ex) { prod = null; }
+        if (seq !== renderSeq) return;
+      }
       if (!prod) { MPH.toast('That production doesn’t exist or you don’t have access.', 'triangle-alert', 'error'); return go('productions'); }
       prodCache = prod;
       access = api.accessFor(prod);
@@ -612,12 +665,37 @@
   }
   MPH.render = render;
 
-  async function renderView(r, prod, access, seq = renderSeq) {
+  let viewSeq = 0;
+  /* after drawing from the cache: re-read, store, and redraw if the data changed and the screen is still untouched */
+  function revalidate(r, prod, access, seq, mySeq, root, view, ctx, key, hit) {
+    let touched = false;
+    const touch = () => { touched = true; };
+    ['pointerdown', 'keydown', 'input', 'dragstart'].forEach((ev) => root.addEventListener(ev, touch, { capture: true, once: true }));
+    Promise.resolve().then(() => view.load(ctx)).then((fresh) => {
+      if (seq !== renderSeq || mySeq !== viewSeq || !root.isConnected) return; // something newer has drawn since
+      if (!cacheable(r, fresh)) { viewCache.delete(key); return; }
+      const json = snapshot(fresh);
+      remember(key, fresh);
+      if (json !== null && json === hit.json) return;
+      const ae = document.activeElement;
+      const typing = ae && root.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName);
+      if (touched || typing || !document.getElementById('overlay').hidden) return;
+      const content = document.getElementById('content');
+      const top = content ? content.scrollTop : 0, wtop = window.scrollY;
+      renderView(r, prod, access, seq, { data: fresh }).then(() => {
+        if (content && content.isConnected) content.scrollTop = top;
+        window.scrollTo(0, wtop);
+      });
+    }).catch(() => { /* keep showing the cached copy */ });
+  }
+
+  async function renderView(r, prod, access, seq = renderSeq, opts = {}) {
     const old = document.getElementById('view');
     if (!old) return;
     const root = document.createElement('div');
     root.id = 'view';
     old.replaceWith(root);
+    const mySeq = ++viewSeq;
 
     const clientish = access.isClient || MPH.state.previewClient;
     if (prod && clientish && !CLIENT_MODULES.includes(r.view)) {
@@ -632,21 +710,34 @@
       route: r, params: r.params, production: prod, ...access,
       isClient: clientish, // client screens render for real clients and for producer preview
       realClient: access.isClient,
-      go, reload: () => renderView(r, prod, access), refreshAll: render,
+      go, reload: () => renderView(r, prod, access, renderSeq, { fresh: true }),
+      refreshAll: () => { prodFresh = true; return render(); },
       toast: MPH.toast, toastError: MPH.toastError, modal: MPH.modal, drawer: MPH.drawer, closeOverlay, frame: MPH.frame,
       t, ui, esc, api, sb: MPH.sb, state: MPH.state, session: MPH.session,
     };
+    const key = cacheKey(r, prod, clientish);
+    const draw = async (data) => {
+      root.innerHTML = view.render(ctx, data);
+      icons(root);
+      if (view.mount) await view.mount(root, ctx, data);
+      icons(root);
+    };
     try {
       let data;
+      if (opts.data !== undefined) { await draw(opts.data); return; } // a background re-read found newer data
+      const hit = view.load && !opts.fresh && viewCache.get(key);
+      if (hit && Date.now() - hit.at < VIEW_TTL) {
+        await draw(hit.data);
+        revalidate(r, prod, access, seq, mySeq, root, view, ctx, key, hit);
+        return;
+      }
       if (view.load) {
-        root.innerHTML = ui.loading(); icons();
+        root.innerHTML = ui.loading(); icons(root);
         data = await view.load(ctx);
         if (seq !== renderSeq || !root.isConnected) return;
+        if (cacheable(r, data)) remember(key, data); else viewCache.delete(key);
       }
-      root.innerHTML = view.render(ctx, data);
-      icons();
-      if (view.mount) await view.mount(root, ctx, data);
-      icons();
+      await draw(data);
     } catch (err) {
       console.error(err);
       root.innerHTML = `<div class="page">${ui.errorBox(err.message || String(err))}<div><button class="btn btn-outline btn-sm" data-act="retry">Try again</button></div></div>`;
@@ -666,15 +757,15 @@
       const r = parse();
       if (MPH.state.previewClient && r.section === 'p' && !CLIENT_MODULES.includes(r.view)) go(`p.${r.productionId}.overview`); else render();
       MPH.toast(MPH.state.previewClient ? 'Showing what your client sees' : 'Back to producer view', 'eye');
-    } else if (a === 'signout') { await api.signOut(); MPH.session = null; go('login'); }
+    } else if (a === 'signout') { await api.signOut(); MPH.session = null; MPH.clearCache(); go('login'); }
   });
   document.addEventListener('change', async (e) => {
-    if (e.target.id === 'org-switch') { MPH.state.orgId = e.target.value; MPH.saveState(); await api.loadSession(); go('home'); }
+    if (e.target.id === 'org-switch') { MPH.state.orgId = e.target.value; MPH.saveState(); MPH.clearCache(); await api.loadSession(); go('home'); }
   });
 
   if (MPH.sb) {
     MPH.sb.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') { MPH.session = null; render(); }
+      if (event === 'SIGNED_OUT') { MPH.session = null; MPH.clearCache(); render(); }
       if (event === 'PASSWORD_RECOVERY') go('account');
     });
   }

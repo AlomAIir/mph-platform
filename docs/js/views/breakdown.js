@@ -746,9 +746,11 @@
     async load(ctx) {
       const { sb, api } = ctx;
       const pid = ctx.production.id;
-      const script = api.must(await sb.from('scripts').select('*').eq('production_id', pid).order('version', { ascending: false }).limit(1))[0] || null;
+      // one round trip: the latest script with its scenes and their elements embedded
+      const script = api.must(await sb.from('scripts').select('*, scenes(*, elements(*))').eq('production_id', pid).order('version', { ascending: false }).limit(1))[0] || null;
       if (!script) return { script: null, scenes: [], older: 0 };
-      const scenes = api.must(await sb.from('scenes').select('*, elements(*)').eq('script_id', script.id).order('sort'));
+      const scenes = (script.scenes || []).sort((a, b) => (a.sort || 0) - (b.sort || 0));
+      delete script.scenes;
       scenes.forEach((s) => { s.elements = (s.elements || []).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at))); });
       let older = 0;
       if (!scenes.length) {

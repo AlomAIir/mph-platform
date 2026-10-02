@@ -415,7 +415,7 @@
           <p class="small muted" style="max-width:52ch">The AI reads this PDF directly, Arabic included. Run the breakdown to split it into scenes you can read and review here.</p>
           <div class="row wrap" style="justify-content:center">
             ${canWrite(ctx) && latest ? `<a class="btn btn-primary" href="#p.${p.id}.breakdown${running ? '' : '.run'}">${ui.icon('sparkles')}${running ? 'See breakdown progress' : 'Run AI breakdown'}</a>` : ''}
-            ${d.fileUrl ? `<a class="btn btn-outline" href="${esc(d.fileUrl)}" download>${ui.icon('download')}Download original</a>` : ''}
+            ${d.hasFile ? `<button class="btn btn-outline" data-sc-dl>${ui.icon('download')}Download original</button>` : ''}
           </div>
         </div>`;
     return `
@@ -467,24 +467,25 @@
     async load(ctx) {
       const { sb, api } = ctx;
       const pid = ctx.production.id;
-      const list = api.must(await sb.from('scripts').select('id, version, title, source_type, file_path, locked, breakdown_status, breakdown_at, created_at').eq('production_id', pid).order('version'));
+      const st = uiState(ctx);
+      const want = ctx.isClient ? null : st.ver;
+      // one round trip: the version list, and the chosen version with its scenes embedded
+      const pickQuery = (ver) => {
+        const q = sb.from('scripts').select('*, scenes(id, num, heading, int_ext, day_night, location, synopsis, body, pages_eighths, sort)').eq('production_id', pid);
+        return (ver ? q.eq('version', ver) : q.order('version', { ascending: false })).limit(1);
+      };
+      const [listRes, pickRes] = await Promise.all([
+        sb.from('scripts').select('id, version, title, source_type, file_path, locked, breakdown_status, breakdown_at, created_at').eq('production_id', pid).order('version'),
+        pickQuery(want),
+      ]);
+      const list = api.must(listRes);
       if (!list.length) return { list, script: null, scenes: [] };
       const latest = list[list.length - 1];
-      const st = uiState(ctx);
-      const pick = ctx.isClient ? latest : (list.find((x) => x.version === st.ver) || latest);
-      const [full, scenes] = await Promise.all([
-        sb.from('scripts').select('*').eq('id', pick.id).single(),
-        sb.from('scenes').select('id, num, heading, int_ext, day_night, location, synopsis, body, pages_eighths, sort').eq('script_id', pick.id).order('sort'),
-      ]);
-      const script = api.must(full);
-      let fileUrl = null;
-      if (!ctx.isClient && script.file_path) {
-        try {
-          const { data } = await sb.storage.from('scripts').createSignedUrl(script.file_path, 3600, { download: fileName(script.file_path) });
-          fileUrl = (data && data.signedUrl) || null;
-        } catch (e) { fileUrl = null; }
-      }
-      return { list, latest, script, scenes: api.must(scenes), fileUrl };
+      let script = api.must(pickRes)[0];
+      if (!script) script = api.must(await pickQuery(null))[0]; // the remembered version was deleted
+      const scenes = (script.scenes || []).sort((a, b) => (a.sort || 0) - (b.sort || 0));
+      delete script.scenes;
+      return { list, latest, script, scenes, hasFile: !ctx.isClient && !!script.file_path };
     },
 
     render(ctx, d) {
@@ -522,7 +523,7 @@
             <div class="seg" role="tablist" aria-label="Display">${[['scenes', 'Scenes'], ['text', 'Original text']].map(([id, l]) => `<button class="${mode === id ? 'on' : ''}" role="tab" aria-selected="${mode === id}" data-a="mode" data-m="${id}">${l}</button>`).join('')}</div>` : ''}
           <span class="spacer"></span>
           ${edit && hasText && !s.locked && !editing ? `<button class="btn btn-outline btn-sm" data-a="edit">${ui.icon('pencil')}Edit text</button>` : ''}
-          ${d.fileUrl && mode !== 'file' ? `<a class="btn btn-outline btn-sm" href="${esc(d.fileUrl)}" download>${ui.icon('download')}Download original</a>` : ''}
+          ${d.hasFile && mode !== 'file' ? `<button class="btn btn-outline btn-sm" data-sc-dl>${ui.icon('download')}Download original</button>` : ''}
         </div>`;
 
       const older = !isLatest && !ctx.isClient ? `
@@ -555,6 +556,18 @@
       const { sb, api } = ctx;
       const st = uiState(ctx);
       const s = d.script;
+
+      // the original file is signed only when someone asks for it, so the page doesn't wait on storage
+      root.addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-sc-dl]');
+        if (!b || b.disabled) return;
+        b.disabled = true;
+        try {
+          const { data, error } = await sb.storage.from('scripts').createSignedUrl(s.file_path, 600, { download: fileName(s.file_path) });
+          if (error || !data) throw new Error(error ? error.message : 'Couldn’t prepare the download.');
+          location.href = data.signedUrl;
+        } catch (ex) { ctx.toastError(ex); } finally { b.disabled = false; }
+      });
 
       const setActive = (id) => root.querySelectorAll('.sc-scn').forEach((x) => x.classList.toggle('on', x.dataset.id === id));
 

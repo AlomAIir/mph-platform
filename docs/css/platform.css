@@ -152,7 +152,7 @@
 .aa-strips { position: absolute; inset: -20% -15%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; transform: rotate(-9deg); opacity: .38; z-index: -2;
   mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 78%, transparent 100%); -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 78%, transparent 100%); }
 .aa-col { overflow: hidden; }
-.aa-track { display: flex; flex-direction: column; gap: 8px; animation: aa-scroll var(--dur, 50s) linear infinite; }
+.aa-track { display: flex; flex-direction: column; gap: 8px; animation: aa-scroll var(--dur, 50s) linear infinite; will-change: transform; }
 .aa-col:nth-child(2) .aa-track { animation-direction: reverse; }
 @keyframes aa-scroll { from { transform: translateY(0); } to { transform: translateY(calc(-50% - 4px)); } }
 .aa-strip { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px;
@@ -165,7 +165,7 @@
 .aa-glow { position: absolute; inset: 0; z-index: -1; background: radial-gradient(55% 45% at 50% 50%, rgba(10, 20, 19, .92) 0%, rgba(10, 20, 19, .55) 60%, transparent 100%); }
 
 .aa-card { position: absolute; inset-inline-start: 50%; inset-block-start: 46%; width: min(460px, 82%); translate: -50% -50%;
-  background: rgba(16, 33, 31, .86); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  background: rgba(16, 33, 31, .95); /* solid instead of a backdrop blur: blurring the moving strips every frame was costly */
   border: 1px solid var(--line-2); border-radius: 16px; padding: 20px 22px; box-shadow: 0 30px 60px rgba(0, 0, 0, .45);
   display: flex; flex-direction: column; gap: 12px; animation: aa-float 7s ease-in-out infinite; }
 [dir="rtl"] .aa-card { translate: 50% -50%; }
@@ -272,9 +272,11 @@
 
 /* AI sketches (docs/js/sketch.js): fill their box, with gentle life in stars and fire */
 .prod-thumb svg.sk { width: 100%; height: 100%; display: block; }
-.sk-star { animation: sk-twinkle 3s ease-in-out infinite; }
+/* stars hold still in lists (a shot list can hold hundreds of night frames); they twinkle in the header image and on hover */
+.sk-star { opacity: .7; }
+.ov-hero .sk-star, svg.sk:hover .sk-star { animation: sk-twinkle 3s ease-in-out infinite; }
 @keyframes sk-twinkle { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
-.sk-fire { animation: sk-flicker 1.1s ease-in-out infinite alternate; }
+.ov-hero .sk-fire, svg.sk:hover .sk-fire { animation: sk-flicker 1.1s ease-in-out infinite alternate; }
 @keyframes sk-flicker { from { transform: scaleY(.9); } to { transform: scaleY(1.08) scaleX(.96); } }
 
 /* buttons inside empty states keep normal-size icons (the empty-state icon rule is 28px) */

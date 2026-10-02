@@ -560,7 +560,9 @@
         || dated.find((x) => x.date === today) || dated.find((x) => x.date > today) || dated.filter((x) => x.date < today).pop() || days[0];
 
       const internal = ctx.canSeeInternal;
-      const [people, scenes, sheet, att, logs, cos, costs, receipts, lines] = await Promise.all([
+      const [allShots, people, scenes, sheet, att, logs, cos, costs, receipts, lines] = await Promise.all([
+        // every shot of the production, filtered to today's scenes below: saves a round trip
+        sb.from('shots').select('id, scene_id, code, size, angle, movement, lens, description, subject, setup, est_minutes, done, sort').eq('production_id', pid).order('sort'),
         sb.from('people').select('id, name, role, dept, kind, phone, default_call, status').eq('production_id', pid).order('name'),
         sb.from('active_scenes').select('id, num, heading, location, day_night, sort, day_sort').eq('production_id', pid).eq('shoot_day_id', day.id).order('day_sort').order('sort'),
         sb.from('call_sheets').select('id, version, content, published_at').eq('shoot_day_id', day.id).eq('status', 'published').order('version', { ascending: false }).limit(1),
@@ -592,8 +594,10 @@
       d.people.sort((a, b) => (callOf(d, a) || '99:99').localeCompare(callOf(d, b) || '99:99') || a.name.localeCompare(b.name));
 
       const sceneIds = d.scenes.map((s) => s.id);
-      const [shots, names, urls] = await Promise.all([
-        sceneIds.length ? sb.from('shots').select('id, scene_id, code, size, angle, movement, lens, description, subject, setup, est_minutes, done, sort').in('scene_id', sceneIds).order('sort') : Promise.resolve({ data: [] }),
+      const daySceneIds = new Set(sceneIds);
+      const shots = { data: (must(allShots) || []).filter((x) => daySceneIds.has(x.scene_id)) };
+      const needNames = d.logs.length || d.cos.length || d.receipts.length;
+      const [names, urls] = !needNames ? [{ data: [] }, {}] : await Promise.all([
         (() => {
           const ids = [...new Set([...d.logs, ...d.cos, ...d.receipts].map((x) => x.created_by).filter(Boolean))];
           return ids.length ? sb.from('profiles').select('id, full_name, email').in('id', ids) : Promise.resolve({ data: [] });

@@ -27,14 +27,12 @@ MPH.view('overview', {
       ]);
       return { scripts: scripts.data || [], bids: bids.data || [] };
     }
-    const [treat, frames, events, locs] = await Promise.all([
+    // one round trip: every count the cards need, in parallel
+    const [treat, frames, events, locs, scripts, scenes, elements, shots, days, people, sheets, lines, bids] = await Promise.all([
       q('treatments', 'version, status'),
       q('storyboard_frames', 'id'),
       ctx.sb.from('events').select('id, starts_at').eq('production_id', pid).gte('starts_at', new Date().toISOString()),
       q('locations', 'id, permit_status'),
-    ]);
-    const extra = { treatments: treat.data || [], frames: frames.data || [], events: events.data || [], locations: locs.data || [] };
-    const [scripts, scenes, elements, shots, days, people, sheets, lines, bids] = await Promise.all([
       q('scripts', 'id, version, locked, breakdown_status'),
       ctx.sb.from('active_scenes').select('id, shoot_day_id').eq('production_id', pid),
       q('elements', 'id, status'),
@@ -45,6 +43,7 @@ MPH.view('overview', {
       ctx.canSeeInternal ? q('budget_lines', 'qty, unit_cost, markup_pct') : Promise.resolve({ data: null }),
       q('client_bids', 'id, version, status, total'),
     ]);
+    const extra = { treatments: treat.data || [], frames: frames.data || [], events: events.data || [], locations: locs.data || [] };
     return {
       scripts: scripts.data || [], scenes: scenes.data || [], elements: elements.data || [], shots: shots.data || [],
       days: days.data || [], people: people.data || [], sheets: sheets.data || [], lines: lines.data,
