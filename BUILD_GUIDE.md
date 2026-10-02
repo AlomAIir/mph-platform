@@ -75,6 +75,11 @@ Copy: plain, specific, active voice. Buttons say exactly what happens. No lorem 
   lookbook images on boards, palette swatches and optionally a script outline / summary / Documents entry, after a review step.
   `MPH.importer.moods(ctx, files, {onDone})` sorts mood-board images onto boards. PDF pages are drawn with pdf.js in the browser.
 - Errors from `ctx.api.ai` carry `err.code` ('too_slow') and `err.status`.
+- Speed: app.js caches each screen's `load()` result. A revisited screen draws from the cache instantly, re-runs `load()` in the background and
+  redraws only if the data changed and the user hasn't touched the screen. So `load()` must have no side effects (routes with a `new` or
+  `run` param are never cached), `mount()` must be safe to run again, and after a write call `ctx.reload()` (always fresh) or `ctx.refreshAll()`
+  (also re-reads the production). Run a view's independent queries in one `Promise.all`, and embed related rows (`select('*, scenes(*)')`)
+  instead of a second round trip; each round trip to Supabase costs ~300 ms.
 - Scenes: always read `active_scenes` (latest broken-down script version), never `scenes`, for anything except writes.
 - Workspace id for rate cards: `ctx.production.org_id`.
 - Client-visible modules: overview, treatment, script, storyboard (only when productions.share_storyboard), calendar (non-internal events,
